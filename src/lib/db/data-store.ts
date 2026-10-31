@@ -489,6 +489,16 @@ export async function createOrder(data: Omit<Order, 'id' | 'created_at' | 'updat
   const now = new Date().toISOString();
   const db = getDb();
   if (db) {
+    let validUserId: string | null = null;
+    if (data.created_by) {
+      try {
+        const u = await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.id, data.created_by)).limit(1);
+        if (u.length > 0) validUserId = u[0].id;
+      } catch {
+        validUserId = null;
+      }
+    }
+
     const [inserted] = await db
       .insert(schema.orders)
       .values({
@@ -509,7 +519,7 @@ export async function createOrder(data: Omit<Order, 'id' | 'created_at' | 'updat
         boxes: data.boxes || 1,
         courierCharge: data.courier_charge ? data.courier_charge.toString() : null,
         dispatchDate: data.dispatch_date || null,
-        createdBy: data.created_by || null,
+        createdBy: validUserId,
       })
       .returning();
 
@@ -688,8 +698,18 @@ export async function logActivity(
 ): Promise<void> {
   const db = getDb();
   if (db) {
+    let validUserId: string | null = null;
+    if (userId) {
+      try {
+        const u = await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+        if (u.length > 0) validUserId = u[0].id;
+      } catch {
+        validUserId = null;
+      }
+    }
+
     await db.insert(schema.activityLog).values({
-      userId: userId || null,
+      userId: validUserId,
       userName,
       action,
       orderNo: orderNo || null,
