@@ -22,7 +22,7 @@ export async function fetchLiveCourierTracking(courier: string, awbNo: string): 
       courier,
       awbNo,
       currentStatus: 'Dispatched',
-      location: 'Hub - Madurai South',
+      location: 'Hub - Pollachi',
       lastUpdated: new Date().toISOString(),
       rawDetails: { placeholder: true, note: 'Configure DTDC_API_KEY or ST_COURIER_API_KEY in environment' },
     };

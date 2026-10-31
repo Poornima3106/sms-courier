@@ -39,7 +39,7 @@ async function main() {
     .insert(schema.users)
     .values({
       username: 'staff',
-      fullName: 'Madurai Counter Staff',
+      fullName: 'Pollachi Counter Staff',
       passwordHash: staffHash,
       role: 'staff',
       isActive: true,
@@ -53,9 +53,10 @@ async function main() {
     { category: 'courier', name: 'ST Courier' },
     { category: 'courier', name: 'Professional' },
     { category: 'courier', name: 'Others' },
-    { category: 'city', name: 'Madurai' },
-    { category: 'city', name: 'Chennai' },
+    { category: 'city', name: 'Pollachi' },
     { category: 'city', name: 'Coimbatore' },
+    { category: 'city', name: 'Chennai' },
+    { category: 'city', name: 'Madurai' },
     { category: 'city', name: 'Trichy' },
     { category: 'city', name: 'Salem' },
     { category: 'city', name: 'Tirunelveli' },

@@ -83,13 +83,13 @@ export default function Header({ currentUser, onToggleMobileMenu, isMobileMenuOp
                     Sri Mahadevaiyer Sweets – Since 1946
                   </h1>
                   <span className="hidden lg:inline-flex items-center gap-1 text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-[#D4AF37]/30 text-[#FBF6EF] border border-[#D4AF37]/40">
-                    <Sparkles className="w-2.5 h-2.5" /> Madurai
+                    <Sparkles className="w-2.5 h-2.5" /> Pollachi
                   </span>
                 </div>
                 <p className="text-xs text-[#FBF6EF]/80 font-sans hidden sm:block">
                   {language === 'ta'
-                    ? 'ஆர்டர் மற்றும் கூரியர் மேலாண்மை அமைப்பு • மதுரை'
-                    : 'Order & Courier Management System • Madurai, Tamil Nadu'}
+                    ? 'ஆர்டர் மற்றும் கூரியர் மேலாண்மை அமைப்பு • பொள்ளாச்சி'
+                    : 'Order & Courier Management System • Pollachi, Tamil Nadu'}
                 </p>
               </div>
             </Link>

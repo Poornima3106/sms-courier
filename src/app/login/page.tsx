@@ -67,7 +67,7 @@ export default function LoginPage() {
             Sri Mahadevaiyer Sweets
           </h2>
           <p className="text-xs uppercase tracking-widest font-semibold text-gray-500 dark:text-gray-400 mt-1">
-            Since 1946 • Madurai, Tamil Nadu
+            Since 1946 • Pollachi, Tamil Nadu
           </p>
           <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#7A1626]/10 dark:bg-[#7A1626]/30 text-[#7A1626] dark:text-[#E5B84B] text-xs font-medium">
             <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />

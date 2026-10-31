@@ -14,10 +14,10 @@ export default function AddOrderPage() {
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
-  const [selectedCity, setSelectedCity] = useState('Madurai');
+  const [selectedCity, setSelectedCity] = useState('Pollachi');
   const [customCity, setCustomCity] = useState('');
   const [isTypingNewCity, setIsTypingNewCity] = useState(false);
-  const [pincode, setPincode] = useState('625001');
+  const [pincode, setPincode] = useState('642001');
   const [product, setProduct] = useState('Diwali Feast Box');
   const [orderDate, setOrderDate] = useState('2026-10-31');
   const [paymentStatus, setPaymentStatus] = useState<'Paid' | 'COD' | 'Pending'>('Paid');
@@ -33,7 +33,7 @@ export default function AddOrderPage() {
   const [weightKg, setWeightKg] = useState('1.0');
   const [courierCharge, setCourierCharge] = useState('');
 
-  const [cityList, setCityList] = useState<string[]>(['Madurai', 'Chennai', 'Coimbatore', 'Trichy', 'Salem', 'Tirunelveli']);
+  const [cityList, setCityList] = useState<string[]>(['Pollachi', 'Coimbatore', 'Chennai', 'Madurai', 'Trichy', 'Salem', 'Tirunelveli']);
   const [productList, setProductList] = useState<string[]>([
     'Diwali Feast Box',
     'Mixed Sweets Box',

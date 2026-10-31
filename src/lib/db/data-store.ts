@@ -48,6 +48,7 @@ function getDefaultStore(): LocalStoreData {
     { id: 'c2', category: 'courier', name: 'ST Courier', is_active: true, created_at: now },
     { id: 'c3', category: 'courier', name: 'Professional', is_active: true, created_at: now },
     { id: 'c4', category: 'courier', name: 'Others', is_active: true, created_at: now },
+    { id: 'ct0', category: 'city', name: 'Pollachi', is_active: true, created_at: now },
     { id: 'ct1', category: 'city', name: 'Madurai', is_active: true, created_at: now },
     { id: 'ct2', category: 'city', name: 'Chennai', is_active: true, created_at: now },
     { id: 'ct3', category: 'city', name: 'Coimbatore', is_active: true, created_at: now },

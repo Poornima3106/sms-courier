@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'Sri Mahadevaiyer Sweets – Order & Courier Management (Since 1946)',
-  description: 'Order and courier management system for Sri Mahadevaiyer Sweets, Madurai. Track Diwali sweet-box dispatches and orders.',
+  description: 'Order and courier management system for Sri Mahadevaiyer Sweets, Pollachi. Track Diwali sweet-box dispatches and orders.',
 };
 
 export default function RootLayout({

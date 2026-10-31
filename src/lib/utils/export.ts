@@ -42,7 +42,7 @@ export function exportOrdersToPdf(
   // Header branding
   doc.setFontSize(16);
   doc.setTextColor(122, 22, 38); // #7A1626 Maroon
-  doc.text('Sri Mahadevaiyer Sweets – Since 1946 (Madurai)', 14, 15);
+  doc.text('Sri Mahadevaiyer Sweets – Since 1946 (Pollachi)', 14, 15);
 
   doc.setFontSize(11);
   doc.setTextColor(80, 80, 80);

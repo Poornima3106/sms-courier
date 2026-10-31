@@ -7,9 +7,9 @@ export type Language = 'en' | 'ta';
 export const translations = {
   en: {
     brandName: 'Sri Mahadevaiyer Sweets',
-    tagline: 'Order & Courier Management System – Since 1946, Madurai',
+    tagline: 'Order & Courier Management System – Since 1946, Pollachi',
     headerTitle: 'Sri Mahadevaiyer Sweets – Since 1946',
-    shopSince: 'Since 1946 • Madurai, Tamil Nadu',
+    shopSince: 'Since 1946 • Pollachi, Tamil Nadu',
     welcome: 'Welcome',
     logout: 'Logout',
     nav: {
@@ -97,9 +97,9 @@ export const translations = {
   },
   ta: {
     brandName: 'ஸ்ரீ மகாதேவையர் ஸ்வீட்ஸ்',
-    tagline: 'ஆர்டர் & கூரியர் மேலாண்மை அமைப்பு – 1946 முதல், மதுரை',
+    tagline: 'ஆர்டர் & கூரியர் மேலாண்மை அமைப்பு – 1946 முதல், பொள்ளாச்சி',
     headerTitle: 'ஸ்ரீ மகாதேவையர் ஸ்வீட்ஸ் – 1946 முதல்',
-    shopSince: '1946 முதல் • மதுரை, தமிழ்நாடு',
+    shopSince: '1946 முதல் • பொள்ளாச்சி, தமிழ்நாடு',
     welcome: 'வணக்கம்',
     logout: 'வெளியேறு',
     nav: {

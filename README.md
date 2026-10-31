@@ -1,10 +1,10 @@
 # Sri Mahadevaiyer Sweets – Order & Courier Management System
-> **Traditional Madurai Sweets since 1946** • Built for Diwali sweet-box dispatch and parcel logistics management.
+> **Traditional Pollachi Sweets since 1946** • Built for Diwali sweet-box dispatch and parcel logistics management.
 
 ---
 
 ## 🏛️ Project Overview
-**Sri Mahadevaiyer Sweets** (Madurai, Tamil Nadu, India) has been crafting traditional ghee sweets since 1946. This mobile-first web application is designed for shop staff and the owner to record customer orders, batch-dispatch packages through regional couriers (DTDC, ST Courier, Professional), track delivery timelines, send one-click customer WhatsApp delivery notices, and generate financial reports.
+**Sri Mahadevaiyer Sweets** (Pollachi, Tamil Nadu, India) has been crafting traditional ghee sweets since 1946. This mobile-first web application is designed for shop staff and the owner to record customer orders, batch-dispatch packages through regional couriers (DTDC, ST Courier, Professional), track delivery timelines, send one-click customer WhatsApp delivery notices, and generate financial reports.
 
 ### 🌟 Key Features
 - **Mobile-First & Responsive Layout**: Tailored for staff using mobile phones at shop counters during the festive Diwali rush.
