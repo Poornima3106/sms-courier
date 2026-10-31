@@ -437,9 +437,14 @@ export async function listOrders(filters?: {
 }
 
 export async function getOrderByOrderNo(orderNo: string): Promise<Order | null> {
+  const clean = orderNo.toUpperCase().trim();
   const db = getDb();
   if (db) {
-    const res = await db.select().from(schema.orders).where(eq(schema.orders.orderNo, orderNo.toUpperCase().trim())).limit(1);
+    const res = await db
+      .select()
+      .from(schema.orders)
+      .where(or(eq(schema.orders.orderNo, clean), eq(schema.orders.awbNo, clean)))
+      .limit(1);
     if (res.length === 0) return null;
     const o = res[0];
     return {
@@ -467,7 +472,13 @@ export async function getOrderByOrderNo(orderNo: string): Promise<Order | null> 
     };
   }
   const store = readLocalStore();
-  return store.orders.find((o) => o.order_no.toUpperCase() === orderNo.toUpperCase().trim()) || null;
+  return (
+    store.orders.find(
+      (o) =>
+        o.order_no.toUpperCase() === clean ||
+        (o.awb_no && o.awb_no.toUpperCase() === clean)
+    ) || null
+  );
 }
 
 export async function getNextOrderNumber(): Promise<string> {

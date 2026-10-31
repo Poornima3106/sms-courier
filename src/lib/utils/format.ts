@@ -34,19 +34,34 @@ export function getWhatsAppUrl(customerName: string, orderNo: string, courierNam
   return `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(text)}`;
 }
 
-export function getTrackingUrl(courierName?: string | null, awbNo?: string | null): string {
+export function getLiveTrackingReportUrl(courierName?: string | null, awbNo?: string | null): string {
   if (!awbNo) return '#';
   const c = (courierName || '').toLowerCase().trim();
   const awb = encodeURIComponent(awbNo.trim());
 
-  if (c.includes('dtdc')) {
-    return `https://www.dtdc.in/tracking/shipment-tracking.asp?strCnno=${awb}`;
+  if (c.includes('blue') || c.includes('dart')) {
+    return `https://www.bluedart.com/tracking?handler=trak&numbers=${awb}`;
+  }
+  if (c.includes('delhivery')) {
+    return `https://www.delhivery.com/track/package/${awb}`;
+  }
+
+  // Universal tracker directly renders the live tracking milestones for Professional Courier, ST Courier, DTDC, India Post, etc.
+  return `https://parcelsapp.com/en/tracking/${awb}`;
+}
+
+export function getOfficialPortalUrl(courierName?: string | null, awbNo?: string | null): string {
+  const c = (courierName || '').toLowerCase().trim();
+  const awb = awbNo ? encodeURIComponent(awbNo.trim()) : '';
+
+  if (c.includes('professional') || c.includes('tpc')) {
+    return `https://www.tpcindia.com/Track-info.aspx`;
   }
   if (c.includes('st') || c.includes('st courier')) {
-    return `https://stcourier.com/track?awb=${awb}`;
+    return `https://stcourier.com/`;
   }
-  if (c.includes('professional') || c.includes('tpc')) {
-    return `https://www.tpcindia.com/track.aspx?awb=${awb}`;
+  if (c.includes('dtdc')) {
+    return `https://www.dtdc.in/`;
   }
   if (c.includes('speed') || c.includes('post') || c.includes('india post')) {
     return `https://www.indiapost.gov.in/_layouts/15/dpt.cpt.tracking/trackconsignment.aspx`;
@@ -61,6 +76,9 @@ export function getTrackingUrl(courierName?: string | null, awbNo?: string | nul
     return `https://trackon.in/TrackOrder.aspx?awb=${awb}`;
   }
 
-  // Fallback to verified search
-  return `https://www.google.com/search?q=${encodeURIComponent(`${courierName || 'courier'} tracking ${awbNo}`)}`;
+  return `https://www.google.com/search?q=${encodeURIComponent(`${courierName || 'courier'} tracking ${awbNo || ''}`)}`;
+}
+
+export function getTrackingUrl(courierName?: string | null, awbNo?: string | null): string {
+  return getLiveTrackingReportUrl(courierName, awbNo);
 }

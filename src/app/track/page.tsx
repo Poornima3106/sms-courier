@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
-import { formatDate, formatCurrency, getTrackingUrl, getWhatsAppUrl } from '@/lib/utils/format';
+import { formatDate, formatCurrency, getTrackingUrl, getWhatsAppUrl, getLiveTrackingReportUrl, getOfficialPortalUrl } from '@/lib/utils/format';
 import StatusBadge from '@/components/StatusBadge';
 import {
   Search,
@@ -17,6 +17,9 @@ import {
   MapPin,
   Calendar,
   Sparkles,
+  Copy,
+  Check,
+  Globe,
 } from 'lucide-react';
 
 function TrackOrderContent() {
@@ -28,6 +31,7 @@ function TrackOrderContent() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copiedAwb, setCopiedAwb] = useState(false);
 
   const fetchTracking = async (no: string) => {
     if (!no.trim()) return;
@@ -80,7 +84,7 @@ function TrackOrderContent() {
         </p>
 
         {/* Input Form */}
-        <form onSubmit={handleSearch} className="mt-6 flex flex-col sm:flex-row gap-2 max-w-lg mx-auto">
+        <form onSubmit={handleSearch} className="mt-6 flex flex-col sm:flex-row gap-2 max-w-xl mx-auto">
           <div className="relative flex-1">
             <Search className="w-5 h-5 absolute left-3.5 top-3 text-gray-400" />
             <input
@@ -88,23 +92,23 @@ function TrackOrderContent() {
               required
               value={orderNoInput}
               onChange={(e) => setOrderNoInput(e.target.value.toUpperCase())}
-              placeholder="Enter Order No (e.g. DWL1001)"
-              className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-sm uppercase tracking-wider font-semibold focus:ring-2 focus:ring-[#7A1626] outline-none"
+              placeholder="Enter Order No (DWL...) or Courier AWB / Track ID (e.g. PRO882910)"
+              className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-xs sm:text-sm uppercase tracking-wider font-semibold focus:ring-2 focus:ring-[#7A1626] outline-none"
             />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-2.5 rounded-xl bg-[#7A1626] hover:bg-[#5B0E1B] text-white font-semibold text-sm shadow-md transition-all cursor-pointer disabled:opacity-50"
+            className="px-6 py-2.5 rounded-xl bg-[#7A1626] hover:bg-[#5B0E1B] text-white font-semibold text-sm shadow-md transition-all cursor-pointer disabled:opacity-50 shrink-0"
           >
             {loading ? 'Tracking...' : 'Track Package'}
           </button>
         </form>
 
         {/* Quick Sample Links */}
-        <div className="flex items-center justify-center gap-2 mt-4 text-[11px] text-gray-400">
-          <span>Try sample orders:</span>
-          {['DWL1001', 'DWL1002', 'DWL1003', 'DWL1004'].map((sample) => (
+        <div className="flex flex-wrap items-center justify-center gap-2 mt-4 text-[11px] text-gray-400">
+          <span>Try sample Order / AWB:</span>
+          {['DWL1001', 'DWL134', 'PRO882910', 'ST8892110', 'PRO672314'].map((sample) => (
             <button
               key={sample}
               type="button"
@@ -143,18 +147,31 @@ function TrackOrderContent() {
                 </div>
               </div>
 
-              {/* Fast links: Official Tracking & WhatsApp */}
-              <div className="flex items-center gap-2">
+              {/* Fast links: Live Report, Official Portal & WhatsApp */}
+              <div className="flex flex-wrap items-center gap-2">
                 {order.awb_no && (
-                  <a
-                    href={getTrackingUrl(order.courier, order.awb_no)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-xs font-semibold hover:bg-blue-100 transition-colors"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>{order.courier} Portal</span>
-                  </a>
+                  <>
+                    <a
+                      href={getLiveTrackingReportUrl(order.courier, order.awb_no)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-all"
+                      title="View live tracking report"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Live {order.courier} Report</span>
+                    </a>
+                    <a
+                      href={getOfficialPortalUrl(order.courier, order.awb_no)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-xs font-semibold hover:bg-blue-100 transition-colors"
+                      title={`Open official ${order.courier} site`}
+                    >
+                      <Globe className="w-3.5 h-3.5" />
+                      <span>Official Site</span>
+                    </a>
+                  </>
                 )}
                 {order.phone && (
                   <a
@@ -199,6 +216,107 @@ function TrackOrderContent() {
               </div>
             </div>
           </div>
+
+          {/* Live Courier Report Card */}
+          {order.awb_no && (
+            <div className="bg-white dark:bg-[#1E0D12] p-5 sm:p-6 rounded-3xl shadow-sm border-2 border-emerald-500/20 bg-gradient-to-br from-emerald-50/40 via-white to-amber-50/30 dark:from-[#180A0E] dark:to-[#1E0D12] space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shrink-0">
+                    <Truck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                      Verified Courier Partner & AWB
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
+                        {order.courier}
+                      </h4>
+                      <span className="font-mono px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-xs font-bold text-[#7A1626] dark:text-[#E5B84B]">
+                        {order.awb_no}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Copy AWB button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(order.awb_no);
+                    setCopiedAwb(true);
+                    setTimeout(() => setCopiedAwb(false), 2500);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#140A0D] text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 transition-colors shadow-xs cursor-pointer self-start sm:self-auto"
+                >
+                  {copiedAwb ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-emerald-600 font-bold">Copied to Clipboard!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy Tracking ID</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Live Action Buttons */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                {/* Action 1: Direct Live Report */}
+                <a
+                  href={getLiveTrackingReportUrl(order.courier, order.awb_no)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between p-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md transition-all group"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Sparkles className="w-4 h-4 text-emerald-200" />
+                    <div className="text-left">
+                      <span className="text-xs block font-bold leading-tight">
+                        View Live Tracking Report
+                      </span>
+                      <span className="text-[10px] text-emerald-100 block">
+                        Auto-queries {order.courier} live status & scans
+                      </span>
+                    </div>
+                  </div>
+                  <ExternalLink className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
+                </a>
+
+                {/* Action 2: Official Portal Website */}
+                <a
+                  href={getOfficialPortalUrl(order.courier, order.awb_no)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => {
+                    if (navigator.clipboard) {
+                      navigator.clipboard.writeText(order.awb_no);
+                      setCopiedAwb(true);
+                      setTimeout(() => setCopiedAwb(false), 2500);
+                    }
+                  }}
+                  className="flex items-center justify-between p-3.5 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#140A0D] text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-900 font-semibold shadow-xs transition-all group"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Globe className="w-4 h-4 text-blue-500" />
+                    <div className="text-left">
+                      <span className="text-xs block font-bold leading-tight">
+                        Official {order.courier} Portal
+                      </span>
+                      <span className="text-[10px] text-gray-400 block">
+                        Opens main carrier portal (copies AWB on click)
+                      </span>
+                    </div>
+                  </div>
+                  <ExternalLink className="w-4 h-4 shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5" />
+                </a>
+              </div>
+            </div>
+          )}
 
           {/* Visual Timeline Section */}
           <div className="bg-white dark:bg-[#1E0D12] p-6 sm:p-8 rounded-3xl shadow-sm border border-[#EFE4D3] dark:border-[#3A1B23]">
