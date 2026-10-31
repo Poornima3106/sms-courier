@@ -146,26 +146,26 @@ function TrackOrderContent() {
               {/* Fast links: Official Tracking & WhatsApp */}
               <div className="flex items-center gap-2">
                 {order.awb_no && (
-                  <>
-                    <a
-                      href={getTrackingUrl(order.courier, order.awb_no)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-xs font-semibold hover:bg-blue-100 transition-colors"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>{order.courier} Portal</span>
-                    </a>
-                    <a
-                      href={getWhatsAppUrl(order.customer_name, order.order_no, order.courier, order.awb_no, order.phone)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold hover:bg-emerald-100 transition-colors"
-                    >
-                      <MessageCircle className="w-3.5 h-3.5" />
-                      <span>WhatsApp Customer</span>
-                    </a>
-                  </>
+                  <a
+                    href={getTrackingUrl(order.courier, order.awb_no)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-xs font-semibold hover:bg-blue-100 transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>{order.courier} Portal</span>
+                  </a>
+                )}
+                {order.phone && (
+                  <a
+                    href={getWhatsAppUrl(order.customer_name, order.order_no, order.courier, order.awb_no, order.phone)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold hover:bg-emerald-100 transition-colors"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    <span>WhatsApp Customer</span>
+                  </a>
                 )}
               </div>
             </div>

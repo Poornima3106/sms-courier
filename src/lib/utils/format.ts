@@ -24,9 +24,13 @@ export function formatCurrency(amount: number | string | null | undefined): stri
 
 export function getWhatsAppUrl(customerName: string, orderNo: string, courierName?: string | null, awbNo?: string | null, phone?: string): string {
   const cleanPhone = (phone || '').replace(/\D/g, '').slice(-10);
-  const courier = courierName || 'Courier';
-  const awb = awbNo || 'N/A';
-  const text = `Vanakkam ${customerName}, your order ${orderNo} from Sri Mahadevaiyer Sweets has been sent via ${courier}. Tracking no: ${awb}. Thank you!`;
+  let text = '';
+  if (awbNo) {
+    const courier = courierName || 'Courier';
+    text = `Vanakkam ${customerName}, your order ${orderNo} from Sri Mahadevaiyer Sweets has been sent via ${courier}. Tracking no: ${awbNo}. Thank you!`;
+  } else {
+    text = `Vanakkam ${customerName}, your order ${orderNo} from Sri Mahadevaiyer Sweets has been received and is being prepared for dispatch. Thank you!`;
+  }
   return `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(text)}`;
 }
 

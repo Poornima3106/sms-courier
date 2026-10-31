@@ -433,8 +433,8 @@ export default function OrdersPage() {
                       {/* Actions: WhatsApp, Track, Delete */}
                       <td className="py-3.5 px-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* WhatsApp Button (Active when AWB exists) */}
-                          {hasAwb && (
+                          {/* WhatsApp Button for all orders */}
+                          {o.phone && (
                             <a
                               href={whatsAppUrl}
                               target="_blank"
