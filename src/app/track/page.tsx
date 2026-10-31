@@ -92,7 +92,7 @@ function TrackOrderContent() {
               required
               value={orderNoInput}
               onChange={(e) => setOrderNoInput(e.target.value.toUpperCase())}
-              placeholder="Enter Order No (DWL...) or Courier AWB / Track ID (e.g. PRO882910)"
+              placeholder="Enter Order No (e.g. 1001) or Courier AWB / Track ID (e.g. PRO882910)"
               className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-xs sm:text-sm uppercase tracking-wider font-semibold focus:ring-2 focus:ring-[#7A1626] outline-none"
             />
           </div>
@@ -108,7 +108,7 @@ function TrackOrderContent() {
         {/* Quick Sample Links */}
         <div className="flex flex-wrap items-center justify-center gap-2 mt-4 text-[11px] text-gray-400">
           <span>Try sample Order / AWB:</span>
-          {['DWL1001', 'DWL134', 'PRO882910', 'ST8892110', 'PRO672314'].map((sample) => (
+          {['1001', '134', 'PRO882910', 'ST8892110', 'PRO672314'].map((sample) => (
             <button
               key={sample}
               type="button"

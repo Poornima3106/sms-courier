@@ -24,7 +24,7 @@ export type PaymentStatus = 'Paid' | 'COD' | 'Pending';
 
 export interface Order {
   id: string;
-  order_no: string; // e.g. DWL1001
+  order_no: string; // e.g. 1001
   customer_name: string;
   phone: string; // 10 digits, starts with 6-9
   address: string;

@@ -64,7 +64,7 @@ function getDefaultStore(): LocalStoreData {
   const defaultOrders: Order[] = [
     {
       id: 'order-1',
-      order_no: 'DWL1001',
+      order_no: '1001',
       customer_name: 'Priya S',
       phone: '9876543210',
       address: '12 West Masi Street',
@@ -87,7 +87,7 @@ function getDefaultStore(): LocalStoreData {
     },
     {
       id: 'order-2',
-      order_no: 'DWL1002',
+      order_no: '1002',
       customer_name: 'Arjun K',
       phone: '9845123456',
       address: '45 Cherry Road, Hasthampatti',
@@ -110,7 +110,7 @@ function getDefaultStore(): LocalStoreData {
     },
     {
       id: 'order-3',
-      order_no: 'DWL1003',
+      order_no: '1003',
       customer_name: 'Meena R',
       phone: '9789012345',
       address: '88 Thillai Nagar 10th Cross',
@@ -133,7 +133,7 @@ function getDefaultStore(): LocalStoreData {
     },
     {
       id: 'order-4',
-      order_no: 'DWL1004',
+      order_no: '1004',
       customer_name: 'Karthik M',
       phone: '9944123890',
       address: '23 Gandhipuram 4th Street',
@@ -486,15 +486,15 @@ export async function getNextOrderNumber(): Promise<string> {
   const orders = await listOrders();
   let maxNum = 1000;
   for (const o of orders) {
-    const match = o.order_no.match(/DWL(\d+)/i);
-    if (match) {
-      const num = parseInt(match[1], 10);
+    const digits = o.order_no.replace(/\D/g, '');
+    if (digits) {
+      const num = parseInt(digits, 10);
       if (!isNaN(num) && num > maxNum) {
         maxNum = num;
       }
     }
   }
-  return `DWL${maxNum + 1}`;
+  return `${maxNum + 1}`;
 }
 
 export async function createOrder(data: Omit<Order, 'id' | 'created_at' | 'updated_at'>): Promise<Order> {

@@ -4,8 +4,8 @@ export const orderFormSchema = z.object({
   order_no: z
     .string()
     .trim()
-    .min(3, 'Order number must be at least 3 characters')
-    .regex(/^DWL\d+$/i, 'Order number must follow format DWL1001'),
+    .min(1, 'Order number is required')
+    .regex(/^\d+$/, 'Order number must contain only numbers (e.g. 1001)'),
   customer_name: z
     .string()
     .trim()

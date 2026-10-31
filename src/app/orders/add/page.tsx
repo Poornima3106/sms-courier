@@ -97,8 +97,8 @@ export default function AddOrderPage() {
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
 
-    if (!orderNo || !orderNo.trim().match(/^DWL\d+$/i)) {
-      errs.order_no = 'Order number must be in format DWL1001';
+    if (!orderNo || !orderNo.trim().match(/^\d+$/)) {
+      errs.order_no = 'Order number must contain only numbers (e.g. 1005)';
     }
     if (!customerName || customerName.trim().length < 2) {
       errs.customer_name = 'Customer name is required';
@@ -239,12 +239,12 @@ export default function AddOrderPage() {
               <input
                 type="text"
                 value={orderNo}
-                onChange={(e) => setOrderNo(e.target.value.toUpperCase())}
-                placeholder="DWL1005"
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-sm font-semibold tracking-wider uppercase focus:ring-2 focus:ring-[#7A1626] outline-none"
+                onChange={(e) => setOrderNo(e.target.value.replace(/\D/g, ''))}
+                placeholder="1005"
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-sm font-semibold tracking-wider focus:ring-2 focus:ring-[#7A1626] outline-none"
               />
               {errors.order_no && <p className="text-xs text-red-500 mt-1">{errors.order_no}</p>}
-              <p className="text-[10px] text-gray-400 mt-1">Auto-suggested based on latest order number</p>
+              <p className="text-[10px] text-gray-400 mt-1">Auto-suggested numerical order number</p>
             </div>
 
             {/* Order Date */}

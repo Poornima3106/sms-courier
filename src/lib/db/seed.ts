@@ -73,7 +73,7 @@ async function main() {
   // 4 Sample Orders
   const sampleOrders = [
     {
-      orderNo: 'DWL1001',
+      orderNo: '1001',
       customerName: 'Priya S',
       phone: '9876543210',
       address: '12 West Masi Street',
@@ -93,7 +93,7 @@ async function main() {
       createdBy: owner?.id,
     },
     {
-      orderNo: 'DWL1002',
+      orderNo: '1002',
       customerName: 'Arjun K',
       phone: '9845123456',
       address: '45 Cherry Road, Hasthampatti',
@@ -113,7 +113,7 @@ async function main() {
       createdBy: owner?.id,
     },
     {
-      orderNo: 'DWL1003',
+      orderNo: '1003',
       customerName: 'Meena R',
       phone: '9789012345',
       address: '88 Thillai Nagar 10th Cross',
@@ -133,7 +133,7 @@ async function main() {
       createdBy: owner?.id,
     },
     {
-      orderNo: 'DWL1004',
+      orderNo: '1004',
       customerName: 'Karthik M',
       phone: '9944123890',
       address: '23 Gandhipuram 4th Street',
