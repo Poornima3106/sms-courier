@@ -21,6 +21,11 @@ import {
   RotateCw,
   ChevronLeft,
   ChevronRight,
+  Truck,
+  Edit,
+  AlertCircle,
+  Check,
+  X,
 } from 'lucide-react';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -57,6 +62,20 @@ export default function OrdersPage() {
   // Modals & Delete
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // Courier & AWB Assignment Modal State
+  const [orderForCourier, setOrderForCourier] = useState<Order | null>(null);
+  const [modalCourier, setModalCourier] = useState('Professional');
+  const [modalCustomCourier, setModalCustomCourier] = useState('');
+  const [modalIsCustomCourier, setModalIsCustomCourier] = useState(false);
+  const [modalAwb, setModalAwb] = useState('');
+  const [modalStatus, setModalStatus] = useState<OrderStatus>('Dispatched');
+  const [modalDispatchDate, setModalDispatchDate] = useState('');
+  const [modalBoxes, setModalBoxes] = useState('1');
+  const [modalWeight, setModalWeight] = useState('1.0');
+  const [modalCharge, setModalCharge] = useState('');
+  const [isSavingCourier, setIsSavingCourier] = useState(false);
+  const [courierSaveError, setCourierSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -113,6 +132,75 @@ export default function OrdersPage() {
       }
     } catch (err) {
       console.error('Failed to update status:', err);
+    }
+  };
+
+  const openCourierModal = (order: Order) => {
+    setOrderForCourier(order);
+    setCourierSaveError(null);
+
+    const existingCourier = order.courier || couriers[0] || 'Professional';
+    if (couriers.length > 0 && !couriers.includes(existingCourier)) {
+      setModalIsCustomCourier(true);
+      setModalCustomCourier(existingCourier);
+      setModalCourier('__custom__');
+    } else {
+      setModalIsCustomCourier(false);
+      setModalCustomCourier('');
+      setModalCourier(existingCourier);
+    }
+
+    setModalAwb(order.awb_no || '');
+    setModalStatus(order.status === 'Pending' ? 'Dispatched' : order.status);
+    setModalDispatchDate(order.dispatch_date || new Date().toISOString().slice(0, 10));
+    setModalBoxes(order.boxes ? String(order.boxes) : '1');
+    setModalWeight(order.weight_kg ? String(order.weight_kg) : '');
+    setModalCharge(order.courier_charge ? String(order.courier_charge) : '');
+  };
+
+  const handleSaveCourierAssignment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!orderForCourier) return;
+
+    setIsSavingCourier(true);
+    setCourierSaveError(null);
+
+    const finalCourier = modalIsCustomCourier ? modalCustomCourier.trim() : modalCourier;
+    if (!finalCourier) {
+      setCourierSaveError('Please select or specify a courier partner');
+      setIsSavingCourier(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/orders/${orderForCourier.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courier: finalCourier,
+          awb_no: modalAwb.trim() ? modalAwb.trim().toUpperCase() : null,
+          status: modalStatus,
+          dispatch_date: modalDispatchDate || new Date().toISOString().slice(0, 10),
+          boxes: Number(modalBoxes) || 1,
+          weight_kg: modalWeight ? Number(modalWeight) : null,
+          courier_charge: modalCharge ? Number(modalCharge) : null,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setCourierSaveError(data.error || 'Failed to assign courier');
+        setIsSavingCourier(false);
+        return;
+      }
+
+      setOrderForCourier(null);
+      mutate(`/api/orders?${queryParams.toString()}`);
+      mutate('/api/orders');
+    } catch (err: any) {
+      setCourierSaveError('An unexpected error occurred while saving.');
+    } finally {
+      setIsSavingCourier(false);
     }
   };
 
@@ -413,26 +501,71 @@ export default function OrdersPage() {
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         {o.courier ? (
                           <div>
-                            <span className="font-semibold text-gray-800 dark:text-gray-200">
-                              {o.courier}
-                            </span>
-                            <div className="text-[10px] text-gray-500 font-mono">
-                              {o.awb_no || 'Pending AWB'}
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-gray-800 dark:text-gray-200">
+                                {o.courier}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => openCourierModal(o)}
+                                className="p-1 rounded text-gray-400 hover:text-[#7A1626] dark:hover:text-[#E5B84B] hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                                title="Edit Courier or AWB"
+                              >
+                                <Edit className="w-3 h-3" />
+                              </button>
                             </div>
+                            {o.awb_no ? (
+                              <a
+                                href={getTrackingUrl(o.courier, o.awb_no)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 font-mono font-semibold hover:underline"
+                                title={`Track on official ${o.courier} portal`}
+                              >
+                                <span>{o.awb_no}</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => openCourierModal(o)}
+                                className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold hover:underline cursor-pointer block"
+                              >
+                                + Add AWB Number
+                              </button>
+                            )}
                             {o.dispatch_date && (
-                              <span className="text-[9px] text-gray-400">
+                              <span className="text-[9px] text-gray-400 block">
                                 Dispatched: {formatDate(o.dispatch_date)}
                               </span>
                             )}
                           </div>
                         ) : (
-                          <span className="text-gray-400 italic text-[11px]">Not assigned</span>
+                          <button
+                            type="button"
+                            onClick={() => openCourierModal(o)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[11px] font-bold transition-all shadow-xs cursor-pointer"
+                            title="Assign Courier Partner & AWB tracking"
+                          >
+                            <Truck className="w-3.5 h-3.5" />
+                            <span>+ Assign Courier</span>
+                          </button>
                         )}
                       </td>
 
-                      {/* Actions: WhatsApp, Track, Delete */}
+                      {/* Actions: Courier, WhatsApp, Track, Delete */}
                       <td className="py-3.5 px-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* Assign / Edit Courier quick button */}
+                          <button
+                            type="button"
+                            onClick={() => openCourierModal(o)}
+                            className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 transition-colors cursor-pointer"
+                            title={o.courier ? "Edit Courier & AWB" : "Assign Courier & AWB"}
+                          >
+                            <Truck className="w-4 h-4" />
+                          </button>
+
                           {/* WhatsApp Button for all orders */}
                           {o.phone && (
                             <a
@@ -507,6 +640,210 @@ export default function OrdersPage() {
           </div>
         )}
       </div>
+
+      {/* Assign / Edit Courier & AWB Modal */}
+      {orderForCourier && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-[#1E0D12] rounded-3xl shadow-2xl border border-[#EFE4D3] dark:border-[#3A1B23] w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
+            {/* Modal Header */}
+            <div className="bg-[#7A1626] text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                  <Truck className="w-5 h-5 text-[#E5B84B]" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-base sm:text-lg">
+                    Assign Courier & Tracking AWB
+                  </h3>
+                  <p className="text-xs text-white/80">
+                    Order {orderForCourier.order_no} • {orderForCourier.customer_name} ({orderForCourier.city})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOrderForCourier(null)}
+                className="text-white/70 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSaveCourierAssignment} className="p-6 space-y-4 text-xs">
+              {courierSaveError && (
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 text-red-700 dark:text-red-300 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <p>{courierSaveError}</p>
+                </div>
+              )}
+
+              {/* Courier Partner Selection */}
+              <div>
+                <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1.5">
+                  Courier Partner *
+                </label>
+                {!modalIsCustomCourier ? (
+                  <select
+                    value={modalCourier}
+                    onChange={(e) => {
+                      if (e.target.value === '__custom__') {
+                        setModalIsCustomCourier(true);
+                        setModalCustomCourier('');
+                      } else {
+                        setModalCourier(e.target.value);
+                      }
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-xs font-semibold focus:ring-2 focus:ring-[#7A1626] outline-none"
+                  >
+                    {couriers.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                    <option value="__custom__">+ Enter Custom Courier Partner</option>
+                  </select>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      required
+                      value={modalCustomCourier}
+                      onChange={(e) => setModalCustomCourier(e.target.value)}
+                      placeholder="e.g. Professional / ST Courier / Speed Post"
+                      className="flex-1 px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-xs focus:ring-2 focus:ring-[#7A1626] outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setModalIsCustomCourier(false)}
+                      className="px-3 py-2 text-xs text-gray-500 hover:text-gray-700 font-semibold"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* AWB Tracking Number */}
+              <div>
+                <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1.5">
+                  AWB / Tracking Number *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={modalAwb}
+                  onChange={(e) => setModalAwb(e.target.value.toUpperCase())}
+                  placeholder="e.g. PRO672314 or ST8892110"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-xs font-mono font-bold uppercase tracking-wider focus:ring-2 focus:ring-[#7A1626] outline-none"
+                />
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Once assigned, customers can track their parcel live and receive direct tracking links
+                </p>
+              </div>
+
+              {/* Status & Dispatch Date */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1.5">
+                    Order Status
+                  </label>
+                  <select
+                    value={modalStatus}
+                    onChange={(e) => setModalStatus(e.target.value as OrderStatus)}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-xs font-semibold focus:ring-2 focus:ring-[#7A1626] outline-none"
+                  >
+                    {ALL_STATUSES.map((st) => (
+                      <option key={st} value={st}>{st}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1.5">
+                    Dispatch Date
+                  </label>
+                  <input
+                    type="date"
+                    value={modalDispatchDate}
+                    onChange={(e) => setModalDispatchDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-xs focus:ring-2 focus:ring-[#7A1626] outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Optional: Boxes, Weight, Courier Charge */}
+              <div className="grid grid-cols-3 gap-3 pt-1 border-t border-gray-100 dark:border-gray-800">
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">
+                    Boxes
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={modalBoxes}
+                    onChange={(e) => setModalBoxes(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">
+                    Weight (kg)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={modalWeight}
+                    onChange={(e) => setModalWeight(e.target.value)}
+                    placeholder="1.0"
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">
+                    Charge (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={modalCharge}
+                    onChange={(e) => setModalCharge(e.target.value)}
+                    placeholder="90"
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Buttons */}
+              <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOrderForCourier(null)}
+                  className="px-4 py-2 rounded-xl text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 text-xs font-medium cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingCourier}
+                  className="px-5 py-2 rounded-xl bg-[#7A1626] hover:bg-[#5B0E1B] text-white text-xs font-semibold shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isSavingCourier ? (
+                    <>
+                      <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Save & Update Courier</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Owner Confirmation Delete Modal */}
       <ConfirmModal

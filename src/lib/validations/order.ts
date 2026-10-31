@@ -41,6 +41,12 @@ export const orderFormSchema = z.object({
   status: z
     .enum(['Pending', 'Dispatched', 'In Transit', 'Delivered', 'Delayed', 'Returned', 'Damaged'])
     .default('Pending'),
+  courier: z.string().trim().optional().nullable(),
+  awb_no: z.string().trim().optional().nullable(),
+  dispatch_date: z.string().optional().nullable(),
+  boxes: z.coerce.number().int().min(1).optional().nullable(),
+  weight_kg: z.coerce.number().min(0).optional().nullable(),
+  courier_charge: z.coerce.number().min(0).optional().nullable(),
 });
 
 export type OrderFormData = z.infer<typeof orderFormSchema>;

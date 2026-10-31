@@ -48,7 +48,19 @@ export function getTrackingUrl(courierName?: string | null, awbNo?: string | nul
   if (c.includes('professional') || c.includes('tpc')) {
     return `https://www.tpcindia.com/track.aspx?awb=${awb}`;
   }
+  if (c.includes('speed') || c.includes('post') || c.includes('india post')) {
+    return `https://www.indiapost.gov.in/_layouts/15/dpt.cpt.tracking/trackconsignment.aspx`;
+  }
+  if (c.includes('blue') || c.includes('dart')) {
+    return `https://www.bluedart.com/tracking?handler=trak&numbers=${awb}`;
+  }
+  if (c.includes('delhivery')) {
+    return `https://www.delhivery.com/track/package/${awb}`;
+  }
+  if (c.includes('trackon')) {
+    return `https://trackon.in/TrackOrder.aspx?awb=${awb}`;
+  }
 
-  // Fallback to verified search as specified in requirement
+  // Fallback to verified search
   return `https://www.google.com/search?q=${encodeURIComponent(`${courierName || 'courier'} tracking ${awbNo}`)}`;
 }

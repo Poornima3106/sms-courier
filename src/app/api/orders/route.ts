@@ -57,6 +57,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const initialStatus = data.awb_no && data.status === 'Pending' ? 'Dispatched' : data.status;
+
     const created = await createOrder({
       order_no: data.order_no,
       customer_name: data.customer_name,
@@ -68,7 +70,13 @@ export async function POST(req: NextRequest) {
       order_date: data.order_date,
       payment_status: data.payment_status,
       amount: data.amount,
-      status: data.status,
+      status: initialStatus,
+      courier: data.courier || null,
+      awb_no: data.awb_no || null,
+      dispatch_date: data.dispatch_date || (data.awb_no ? data.order_date : null),
+      boxes: data.boxes || 1,
+      weight_kg: data.weight_kg || null,
+      courier_charge: data.courier_charge || null,
       created_by: session.userId,
     });
 

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
-import { PlusCircle, Sparkles, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
+import { PlusCircle, Sparkles, CheckCircle2, AlertCircle, ArrowLeft, Truck, Package } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AddOrderPage() {
@@ -23,6 +23,16 @@ export default function AddOrderPage() {
   const [paymentStatus, setPaymentStatus] = useState<'Paid' | 'COD' | 'Pending'>('Paid');
   const [amount, setAmount] = useState('1250');
 
+  // Courier & Dispatch fields (optional entry at order creation)
+  const [assignCourierNow, setAssignCourierNow] = useState(false);
+  const [courier, setCourier] = useState('Professional');
+  const [customCourier, setCustomCourier] = useState('');
+  const [isTypingNewCourier, setIsTypingNewCourier] = useState(false);
+  const [awbNo, setAwbNo] = useState('');
+  const [boxes, setBoxes] = useState('1');
+  const [weightKg, setWeightKg] = useState('1.0');
+  const [courierCharge, setCourierCharge] = useState('');
+
   const [cityList, setCityList] = useState<string[]>(['Madurai', 'Chennai', 'Coimbatore', 'Trichy', 'Salem', 'Tirunelveli']);
   const [productList, setProductList] = useState<string[]>([
     'Diwali Feast Box',
@@ -30,6 +40,13 @@ export default function AddOrderPage() {
     'Mysore Pak Box',
     'Laddu Box',
     'Ghee Halwa Special',
+  ]);
+  const [courierList, setCourierList] = useState<string[]>([
+    'Professional',
+    'ST Courier',
+    'India Post (Speed Post)',
+    'DTDC',
+    'Blue Dart',
   ]);
 
   const [loading, setLoading] = useState(false);
@@ -58,10 +75,15 @@ export default function AddOrderPage() {
           if (mData.items) {
             const cities = mData.items.filter((m: any) => m.category === 'city' && m.is_active).map((m: any) => m.name);
             const products = mData.items.filter((m: any) => m.category === 'product' && m.is_active).map((m: any) => m.name);
+            const couriers = mData.items.filter((m: any) => m.category === 'courier' && m.is_active).map((m: any) => m.name);
             if (cities.length > 0) setCityList(cities);
             if (products.length > 0) {
               setProductList(products);
               setProduct(products[0]);
+            }
+            if (couriers.length > 0) {
+              setCourierList(couriers);
+              setCourier(couriers[0]);
             }
           }
         }
@@ -114,6 +136,12 @@ export default function AddOrderPage() {
 
     setLoading(true);
     const finalCity = isTypingNewCity ? customCity.trim() : selectedCity;
+    const finalCourier = assignCourierNow
+      ? isTypingNewCourier
+        ? customCourier.trim()
+        : courier
+      : null;
+    const finalAwb = assignCourierNow && awbNo.trim() ? awbNo.trim().toUpperCase() : null;
 
     try {
       const res = await fetch('/api/orders', {
@@ -130,7 +158,13 @@ export default function AddOrderPage() {
           order_date: orderDate,
           payment_status: paymentStatus,
           amount: Number(amount),
-          status: 'Pending',
+          status: finalAwb ? 'Dispatched' : 'Pending',
+          courier: finalCourier,
+          awb_no: finalAwb,
+          boxes: Number(boxes) || 1,
+          weight_kg: weightKg ? Number(weightKg) : null,
+          courier_charge: courierCharge ? Number(courierCharge) : null,
+          dispatch_date: finalAwb ? orderDate : null,
         }),
       });
 
@@ -390,6 +424,143 @@ export default function AddOrderPage() {
               </div>
               {errors.amount && <p className="text-xs text-red-500 mt-1">{errors.amount}</p>}
             </div>
+          </div>
+
+          {/* Optional Courier & Dispatch Section */}
+          <div className="p-5 rounded-2xl border-2 border-dashed border-[#EFE4D3] dark:border-[#3A1B23] bg-[#FBF6EF]/50 dark:bg-[#180A0E]/50 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#7A1626]/10 text-[#7A1626] dark:text-[#E5B84B] flex items-center justify-center">
+                  <Truck className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                    Courier Partner & AWB Tracking (Optional)
+                  </h3>
+                  <p className="text-[11px] text-gray-500">
+                    Assign courier and tracking number now, or leave pending to dispatch later
+                  </p>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={assignCourierNow}
+                  onChange={(e) => setAssignCourierNow(e.target.checked)}
+                  className="w-4 h-4 text-[#7A1626] rounded focus:ring-[#7A1626] cursor-pointer"
+                />
+                <span className="text-xs font-semibold text-[#7A1626] dark:text-[#E5B84B]">
+                  Assign Now
+                </span>
+              </label>
+            </div>
+
+            {assignCourierNow && (
+              <div className="pt-3 border-t border-[#EFE4D3] dark:border-[#3A1B23] space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Courier Partner */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1.5">
+                      Courier Partner
+                    </label>
+                    {!isTypingNewCourier ? (
+                      <select
+                        value={courier}
+                        onChange={(e) => {
+                          if (e.target.value === '__custom__') {
+                            setIsTypingNewCourier(true);
+                          } else {
+                            setCourier(e.target.value);
+                          }
+                        }}
+                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#140A0D] text-sm focus:ring-2 focus:ring-[#7A1626] outline-none"
+                      >
+                        {courierList.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                        <option value="__custom__">+ Enter Other Courier Partner</option>
+                      </select>
+                    ) : (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={customCourier}
+                          onChange={(e) => setCustomCourier(e.target.value)}
+                          placeholder="e.g. Speed Post / DTDC"
+                          className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#140A0D] text-sm focus:ring-2 focus:ring-[#7A1626] outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setIsTypingNewCourier(false)}
+                          className="px-3 py-2 text-xs text-gray-500 hover:text-gray-700 font-semibold"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* AWB Tracking Number */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1.5">
+                      AWB / Tracking Number
+                    </label>
+                    <input
+                      type="text"
+                      value={awbNo}
+                      onChange={(e) => setAwbNo(e.target.value.toUpperCase())}
+                      placeholder="e.g. PRO672314 or ST8892110"
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#140A0D] text-sm uppercase tracking-wider font-semibold focus:ring-2 focus:ring-[#7A1626] outline-none"
+                    />
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      Entering an AWB automatically marks this order as &ldquo;Dispatched&rdquo;
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                      Boxes
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={boxes}
+                      onChange={(e) => setBoxes(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#140A0D] text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                      Weight (kg)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={weightKg}
+                      onChange={(e) => setWeightKg(e.target.value)}
+                      placeholder="1.0"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#140A0D] text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                      Courier Charge (₹)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={courierCharge}
+                      onChange={(e) => setCourierCharge(e.target.value)}
+                      placeholder="90"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#140A0D] text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Submit Button */}
