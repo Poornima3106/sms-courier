@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
 import { Moon, Sun, Globe, LogOut, User as UserIcon, Menu, X, Sparkles } from 'lucide-react';
+import InstallPrompt from './InstallPrompt';
 import { UserRole } from '@/lib/types';
 
 interface HeaderProps {
@@ -95,8 +96,11 @@ export default function Header({ currentUser, onToggleMobileMenu, isMobileMenuOp
             </Link>
           </div>
 
-          {/* Right Controls: Language, Theme, User Profile */}
+          {/* Right Controls: Install App, Language, Theme, User Profile */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Install App Button */}
+            <InstallPrompt />
+
             {/* Language Switcher */}
             <button
               onClick={() => setLanguage(language === 'en' ? 'ta' : 'en')}

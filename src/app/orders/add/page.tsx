@@ -19,6 +19,9 @@ export default function AddOrderPage() {
   const [isTypingNewCity, setIsTypingNewCity] = useState(false);
   const [pincode, setPincode] = useState('642001');
   const [product, setProduct] = useState('Diwali Feast Box');
+  const [customProduct, setCustomProduct] = useState('');
+  const [isTypingNewProduct, setIsTypingNewProduct] = useState(false);
+  const [boxes, setBoxes] = useState('1');
   const [orderDate, setOrderDate] = useState('2026-10-31');
   const [paymentStatus, setPaymentStatus] = useState<'Paid' | 'COD' | 'Pending'>('Paid');
   const [amount, setAmount] = useState('1250');
@@ -29,7 +32,6 @@ export default function AddOrderPage() {
   const [customCourier, setCustomCourier] = useState('');
   const [isTypingNewCourier, setIsTypingNewCourier] = useState(false);
   const [awbNo, setAwbNo] = useState('');
-  const [boxes, setBoxes] = useState('1');
   const [weightKg, setWeightKg] = useState('1.0');
   const [courierCharge, setCourierCharge] = useState('');
 
@@ -119,6 +121,15 @@ export default function AddOrderPage() {
       errs.pincode = 'PIN code must be exactly 6 digits';
     }
 
+    const finalProd = isTypingNewProduct ? customProduct.trim() : product;
+    if (!finalProd || finalProd.length < 2) {
+      errs.product = 'Please select or enter a valid sweet box product';
+    }
+
+    if (!boxes || isNaN(Number(boxes)) || Number(boxes) < 1) {
+      errs.boxes = 'Total items must be at least 1';
+    }
+
     if (!amount || isNaN(Number(amount)) || Number(amount) < 0) {
       errs.amount = 'Valid amount is required';
     }
@@ -136,6 +147,7 @@ export default function AddOrderPage() {
 
     setLoading(true);
     const finalCity = isTypingNewCity ? customCity.trim() : selectedCity;
+    const finalProduct = isTypingNewProduct ? customProduct.trim() : product;
     const finalCourier = assignCourierNow
       ? isTypingNewCourier
         ? customCourier.trim()
@@ -154,14 +166,14 @@ export default function AddOrderPage() {
           address: address.trim(),
           city: finalCity,
           pincode: pincode.trim(),
-          product,
+          product: finalProduct,
           order_date: orderDate,
           payment_status: paymentStatus,
           amount: Number(amount),
           status: finalAwb ? 'Dispatched' : 'Pending',
           courier: finalCourier,
           awb_no: finalAwb,
-          boxes: Number(boxes) || 1,
+          boxes: Math.max(1, Number(boxes) || 1),
           weight_kg: weightKg ? Number(weightKg) : null,
           courier_charge: courierCharge ? Number(courierCharge) : null,
           dispatch_date: finalAwb ? orderDate : null,
@@ -372,25 +384,88 @@ export default function AddOrderPage() {
             </div>
           </div>
 
-          {/* Product, Payment Status, Amount */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          {/* Sweet Box Product & Total Items Customer Buys */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1.5">
-                {t.orderFields.product} *
-              </label>
-              <select
-                value={product}
-                onChange={(e) => setProduct(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-sm focus:ring-2 focus:ring-[#7A1626] outline-none"
-              >
-                {productList.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                  {t.orderFields.product} *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsTypingNewProduct(!isTypingNewProduct)}
+                  className="text-[11px] font-semibold text-[#7A1626] dark:text-[#E5B84B] hover:underline cursor-pointer"
+                >
+                  {isTypingNewProduct ? '← Choose from dropdown' : '+ Type other sweet box'}
+                </button>
+              </div>
+
+              {isTypingNewProduct ? (
+                <input
+                  type="text"
+                  value={customProduct}
+                  onChange={(e) => setCustomProduct(e.target.value)}
+                  placeholder="e.g. Special Assorted Sweets Box"
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-sm focus:ring-2 focus:ring-[#7A1626] outline-none"
+                />
+              ) : (
+                <select
+                  value={product}
+                  onChange={(e) => setProduct(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-sm focus:ring-2 focus:ring-[#7A1626] outline-none"
+                >
+                  {productList.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {errors.product && <p className="text-xs text-red-500 mt-1">{errors.product}</p>}
+              <p className="text-[10px] text-gray-400 mt-1">Select the sweet box type customer ordered</p>
             </div>
 
+            {/* Total No. of Items / Boxes Customer Buys */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1.5">
+                {t.orderFields.boxes || 'Total No. of Items (Boxes)'} *
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBoxes((prev) => String(Math.max(1, (Number(prev) || 1) - 1)))}
+                  className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 font-bold text-lg flex items-center justify-center transition-colors cursor-pointer select-none"
+                  title="Decrease item quantity"
+                >
+                  -
+                </button>
+                <div className="relative flex-1">
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={boxes}
+                    onChange={(e) => setBoxes(e.target.value)}
+                    placeholder="1"
+                    className="w-full text-center px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-sm font-bold text-[#7A1626] dark:text-[#E5B84B] focus:ring-2 focus:ring-[#7A1626] outline-none"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setBoxes((prev) => String((Number(prev) || 0) + 1))}
+                  className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 font-bold text-lg flex items-center justify-center transition-colors cursor-pointer select-none"
+                  title="Increase item quantity"
+                >
+                  +
+                </button>
+              </div>
+              {errors.boxes && <p className="text-xs text-red-500 mt-1">{errors.boxes}</p>}
+              <p className="text-[10px] text-gray-400 mt-1">Total quantity of sweet boxes/items customer is purchasing</p>
+            </div>
+          </div>
+
+          {/* Payment Status & Amount */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1.5">
                 {t.orderFields.paymentStatus} *

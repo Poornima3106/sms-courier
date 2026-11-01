@@ -22,6 +22,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Truck,
+  Package,
   Edit,
   AlertCircle,
   Check,
@@ -54,6 +55,12 @@ export default function OrdersPage() {
   // Masters
   const [couriers, setCouriers] = useState<string[]>([]);
   const [cities, setCities] = useState<string[]>([]);
+  const [products, setProducts] = useState<string[]>([
+    'Diwali Feast Box',
+    'Mixed Sweets Box',
+    'Mysore Pak Box',
+    'Laddu Box',
+  ]);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -65,6 +72,9 @@ export default function OrdersPage() {
 
   // Courier & AWB Assignment Modal State
   const [orderForCourier, setOrderForCourier] = useState<Order | null>(null);
+  const [modalProduct, setModalProduct] = useState('Diwali Feast Box');
+  const [modalCustomProduct, setModalCustomProduct] = useState('');
+  const [modalIsCustomProduct, setModalIsCustomProduct] = useState(false);
   const [modalCourier, setModalCourier] = useState('Professional');
   const [modalCustomCourier, setModalCustomCourier] = useState('');
   const [modalIsCustomCourier, setModalIsCustomCourier] = useState(false);
@@ -91,8 +101,10 @@ export default function OrdersPage() {
         if (d?.items) {
           const cList = d.items.filter((m: any) => m.category === 'courier').map((m: any) => m.name);
           const ctList = d.items.filter((m: any) => m.category === 'city').map((m: any) => m.name);
+          const pList = d.items.filter((m: any) => m.category === 'product').map((m: any) => m.name);
           setCouriers(cList);
           setCities(ctList);
+          if (pList.length > 0) setProducts(pList);
         }
       })
       .catch(() => {});
@@ -150,6 +162,17 @@ export default function OrdersPage() {
       setModalCourier(existingCourier);
     }
 
+    const existingProduct = order.product || products[0] || 'Diwali Feast Box';
+    if (products.length > 0 && !products.includes(existingProduct)) {
+      setModalIsCustomProduct(true);
+      setModalCustomProduct(existingProduct);
+      setModalProduct('__custom__');
+    } else {
+      setModalIsCustomProduct(false);
+      setModalCustomProduct('');
+      setModalProduct(existingProduct);
+    }
+
     setModalAwb(order.awb_no || '');
     setModalStatus(order.status === 'Pending' ? 'Dispatched' : order.status);
     setModalDispatchDate(order.dispatch_date || new Date().toISOString().slice(0, 10));
@@ -172,16 +195,24 @@ export default function OrdersPage() {
       return;
     }
 
+    const finalProduct = modalIsCustomProduct ? modalCustomProduct.trim() : modalProduct;
+    if (!finalProduct) {
+      setCourierSaveError('Please select or specify a sweet box product');
+      setIsSavingCourier(false);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/orders/${orderForCourier.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          product: finalProduct,
           courier: finalCourier,
           awb_no: modalAwb.trim() ? modalAwb.trim().toUpperCase() : null,
           status: modalStatus,
           dispatch_date: modalDispatchDate || new Date().toISOString().slice(0, 10),
-          boxes: Number(modalBoxes) || 1,
+          boxes: Math.max(1, Number(modalBoxes) || 1),
           weight_kg: modalWeight ? Number(modalWeight) : null,
           courier_charge: modalCharge ? Number(modalCharge) : null,
         }),
@@ -235,7 +266,7 @@ export default function OrdersPage() {
             {t.nav.orders}
           </h2>
           <p className="text-xs sm:text-sm text-gray-500">
-            Search, filter, track, and update status • {totalCount} orders found
+            Search, filter, track, and update status • <span className="font-semibold text-gray-700 dark:text-gray-300">{totalCount} orders</span> • <span className="font-semibold text-[#7A1626] dark:text-[#E5B84B]">{allOrders.reduce((sum, o) => sum + (o.boxes || 1), 0)} total sweet boxes/items</span>
           </p>
         </div>
 
@@ -416,6 +447,7 @@ export default function OrdersPage() {
                   <th className="py-3.5 px-4">{t.orderFields.customerName}</th>
                   <th className="py-3.5 px-4">{t.orderFields.city}</th>
                   <th className="py-3.5 px-4">{t.orderFields.product}</th>
+                  <th className="py-3.5 px-4">{t.orderFields.totalItems}</th>
                   <th className="py-3.5 px-4">{t.orderFields.amount}</th>
                   <th className="py-3.5 px-4">{t.orderFields.status}</th>
                   <th className="py-3.5 px-4">{t.orderFields.courier} / AWB</th>
@@ -455,10 +487,24 @@ export default function OrdersPage() {
                         <div className="text-[10px] text-gray-400">{o.pincode}</div>
                       </td>
 
-                      {/* Product */}
+                      {/* Sweet Box Product */}
                       <td className="py-3.5 px-4">
-                        <span className="font-medium text-gray-700 dark:text-gray-300">{o.product}</span>
-                        {o.boxes && <span className="text-[10px] text-gray-400 block">{o.boxes} Box(es)</span>}
+                        <span className="font-semibold text-gray-800 dark:text-gray-200 block">
+                          {o.product}
+                        </span>
+                      </td>
+
+                      {/* Total Items / Boxes */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-[#7A1626] dark:text-[#E5B84B] border border-amber-200/80 dark:border-amber-900/60 shadow-xs">
+                          <Package className="w-3.5 h-3.5" />
+                          <span>{o.boxes || 1} {Number(o.boxes) === 1 ? 'Item' : 'Items'}</span>
+                        </span>
+                        {o.weight_kg && (
+                          <span className="text-[10px] text-gray-400 block mt-0.5 font-medium">
+                            {o.weight_kg} kg
+                          </span>
+                        )}
                       </td>
 
                       {/* Amount & Payment */}
@@ -678,6 +724,74 @@ export default function OrdersPage() {
                 </div>
               )}
 
+              {/* Sweet Box Product & Total Items */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-3 border-b border-gray-100 dark:border-gray-800">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                      Sweet Box Product *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setModalIsCustomProduct(!modalIsCustomProduct)}
+                      className="text-[10px] font-semibold text-[#7A1626] dark:text-[#E5B84B] hover:underline cursor-pointer"
+                    >
+                      {modalIsCustomProduct ? '← Dropdown' : '+ Custom'}
+                    </button>
+                  </div>
+                  {!modalIsCustomProduct ? (
+                    <select
+                      value={modalProduct}
+                      onChange={(e) => setModalProduct(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-xs font-semibold focus:ring-2 focus:ring-[#7A1626] outline-none"
+                    >
+                      {products.map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      required
+                      value={modalCustomProduct}
+                      onChange={(e) => setModalCustomProduct(e.target.value)}
+                      placeholder="Sweet box name"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-xs focus:ring-2 focus:ring-[#7A1626] outline-none"
+                    />
+                  )}
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1.5">
+                    Total No. of Items (Boxes) *
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setModalBoxes((prev) => String(Math.max(1, (Number(prev) || 1) - 1)))}
+                      className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 font-bold text-sm flex items-center justify-center transition-colors cursor-pointer select-none"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      value={modalBoxes}
+                      onChange={(e) => setModalBoxes(e.target.value)}
+                      className="flex-1 text-center px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-xs font-bold text-[#7A1626] dark:text-[#E5B84B] focus:ring-2 focus:ring-[#7A1626] outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setModalBoxes((prev) => String((Number(prev) || 0) + 1))}
+                      className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 font-bold text-sm flex items-center justify-center transition-colors cursor-pointer select-none"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* Courier Partner Selection */}
               <div>
                 <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1.5">
@@ -770,20 +884,8 @@ export default function OrdersPage() {
                 </div>
               </div>
 
-              {/* Optional: Boxes, Weight, Courier Charge */}
-              <div className="grid grid-cols-3 gap-3 pt-1 border-t border-gray-100 dark:border-gray-800">
-                <div>
-                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">
-                    Boxes
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={modalBoxes}
-                    onChange={(e) => setModalBoxes(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-xs"
-                  />
-                </div>
+              {/* Optional: Weight, Courier Charge */}
+              <div className="grid grid-cols-2 gap-3 pt-1 border-t border-gray-100 dark:border-gray-800">
                 <div>
                   <label className="block text-[10px] font-semibold text-gray-500 mb-1">
                     Weight (kg)

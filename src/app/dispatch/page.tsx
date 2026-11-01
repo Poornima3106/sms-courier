@@ -61,9 +61,15 @@ export default function DispatchPage() {
     } else {
       setSelectedIds([...selectedIds, id]);
       if (!rowStates[id]) {
+        const ord = orders.find((o) => o.id === id);
         setRowStates((prev) => ({
           ...prev,
-          [id]: { awbNo: '', weightKg: '1.0', boxes: 1, courierCharge: '100' },
+          [id]: {
+            awbNo: ord?.awb_no || '',
+            weightKg: ord?.weight_kg ? String(ord.weight_kg) : '1.0',
+            boxes: ord?.boxes || 1,
+            courierCharge: ord?.courier_charge ? String(ord.courier_charge) : '100',
+          },
         }));
       }
     }
@@ -78,7 +84,13 @@ export default function DispatchPage() {
       const newRows: Record<string, DispatchRowState> = { ...rowStates };
       allIds.forEach((id) => {
         if (!newRows[id]) {
-          newRows[id] = { awbNo: '', weightKg: '1.0', boxes: 1, courierCharge: '100' };
+          const ord = orders.find((o) => o.id === id);
+          newRows[id] = {
+            awbNo: ord?.awb_no || '',
+            weightKg: ord?.weight_kg ? String(ord.weight_kg) : '1.0',
+            boxes: ord?.boxes || 1,
+            courierCharge: ord?.courier_charge ? String(ord.courier_charge) : '100',
+          };
         }
       });
       setRowStates(newRows);
@@ -310,7 +322,7 @@ export default function DispatchPage() {
                           <span className="text-xs text-gray-500">({o.city})</span>
                         </div>
                         <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-1">
-                          {o.product} • {o.address} • Ph: {o.phone}
+                          <span className="font-semibold text-gray-800 dark:text-gray-200">{o.product}</span> • <span className="font-bold text-[#7A1626] dark:text-[#E5B84B]">{o.boxes || 1} Total Items</span> • {o.address} • Ph: {o.phone}
                         </p>
                         <p className="text-[11px] text-gray-400 mt-0.5">
                           Ordered on: {formatDate(o.order_date)} • Amount: ₹{o.amount} ({o.payment_status})
@@ -352,14 +364,14 @@ export default function DispatchPage() {
 
                         <div>
                           <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">
-                            Boxes
+                            Total Items (Boxes)
                           </label>
                           <input
                             type="number"
                             min="1"
                             value={row.boxes}
                             onChange={(e) => updateRowField(o.id, 'boxes', parseInt(e.target.value) || 1)}
-                            className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-xs focus:ring-1 focus:ring-[#7A1626] outline-none"
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-xs font-semibold focus:ring-1 focus:ring-[#7A1626] outline-none"
                           />
                         </div>
 

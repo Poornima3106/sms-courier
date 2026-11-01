@@ -579,6 +579,7 @@ export async function updateOrder(id: string, updates: Partial<Order>): Promise<
   if (db) {
     const val: any = { updatedAt: new Date() };
     if (updates.status !== undefined) val.status = updates.status;
+    if (updates.product !== undefined) val.product = updates.product;
     if (updates.courier !== undefined) val.courier = updates.courier;
     if (updates.awb_no !== undefined) val.awbNo = updates.awb_no;
     if (updates.weight_kg !== undefined) val.weightKg = updates.weight_kg?.toString();

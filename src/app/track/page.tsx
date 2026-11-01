@@ -204,7 +204,7 @@ function TrackOrderContent() {
               <div>
                 <span className="text-gray-400 block text-[10px] font-semibold uppercase">Product / Sweet Box</span>
                 <span className="font-bold text-gray-800 dark:text-gray-200 mt-0.5 block">{order.product}</span>
-                <span className="text-gray-500 text-[11px]">{order.boxes || 1} Box • ₹{order.amount}</span>
+                <span className="text-gray-500 text-[11px] font-medium">{order.boxes || 1} {Number(order.boxes) === 1 ? 'Box' : 'Boxes'} (Total Items) • ₹{order.amount}</span>
               </div>
 
               <div>

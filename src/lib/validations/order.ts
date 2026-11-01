@@ -44,7 +44,7 @@ export const orderFormSchema = z.object({
   courier: z.string().trim().optional().nullable(),
   awb_no: z.string().trim().optional().nullable(),
   dispatch_date: z.string().optional().nullable(),
-  boxes: z.coerce.number().int().min(1).optional().nullable(),
+  boxes: z.coerce.number().int().min(1, 'Total items must be at least 1').default(1),
   weight_kg: z.coerce.number().min(0).optional().nullable(),
   courier_charge: z.coerce.number().min(0).optional().nullable(),
 });

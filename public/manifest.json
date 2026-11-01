@@ -1,0 +1,65 @@
+{
+  "id": "/",
+  "name": "Sri Mahadevaiyer Sweets – Order & Courier App",
+  "short_name": "SMS Courier",
+  "description": "Order and courier management system for Sri Mahadevaiyer Sweets, Pollachi (Since 1946).",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#7A1626",
+  "theme_color": "#7A1626",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Add Order",
+      "short_name": "New Order",
+      "description": "Quickly record a new customer sweet box order",
+      "url": "/orders/add",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Bulk Dispatch",
+      "short_name": "Dispatch",
+      "description": "Bulk dispatch sweet orders via courier partners",
+      "url": "/dispatch",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Track Parcels",
+      "short_name": "Track",
+      "description": "Live courier tracking lookup",
+      "url": "/track",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ]
+}

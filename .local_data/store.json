@@ -24,7 +24,7 @@
   "orders": [
     {
       "id": "order-1793467403302",
-      "order_no": "DWL1005",
+      "order_no": "1005",
       "customer_name": "Sundar Pichai",
       "phone": "9840123456",
       "address": "77 Town Hall Road",
@@ -34,6 +34,7 @@
       "order_date": "2026-10-31",
       "payment_status": "Paid",
       "amount": 1500,
+      "boxes": 1,
       "status": "Pending",
       "created_by": "11111111-1111-1111-1111-111111111111",
       "created_at": "2026-10-31T17:23:23.300Z",
@@ -41,7 +42,7 @@
     },
     {
       "id": "order-1",
-      "order_no": "DWL1001",
+      "order_no": "1001",
       "customer_name": "Priya S",
       "phone": "9876543210",
       "address": "12 West Masi Street",
@@ -64,7 +65,7 @@
     },
     {
       "id": "order-2",
-      "order_no": "DWL1002",
+      "order_no": "1002",
       "customer_name": "Arjun K",
       "phone": "9845123456",
       "address": "45 Cherry Road, Hasthampatti",
@@ -87,7 +88,7 @@
     },
     {
       "id": "order-3",
-      "order_no": "DWL1003",
+      "order_no": "1003",
       "customer_name": "Meena R",
       "phone": "9789012345",
       "address": "88 Thillai Nagar 10th Cross",
@@ -110,7 +111,7 @@
     },
     {
       "id": "order-4",
-      "order_no": "DWL1004",
+      "order_no": "1004",
       "customer_name": "Karthik M",
       "phone": "9944123890",
       "address": "23 Gandhipuram 4th Street",
