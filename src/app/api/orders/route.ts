@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const search = searchParams.get('search') || undefined;
+  const phone = searchParams.get('phone') || undefined;
   const status = searchParams.get('status') || undefined;
   const courier = searchParams.get('courier') || undefined;
   const city = searchParams.get('city') || undefined;
@@ -19,6 +20,7 @@ export async function GET(req: NextRequest) {
 
   const orders = await listOrders({
     search,
+    phone,
     status,
     courier,
     city,

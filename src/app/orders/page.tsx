@@ -42,6 +42,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Phone,
+  UserCheck,
 } from 'lucide-react';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -61,6 +63,7 @@ export default function OrdersPage() {
 
   // Search & Filter state
   const [search, setSearch] = useState('');
+  const [phoneFilter, setPhoneFilter] = useState('');
   const [status, setStatus] = useState('All');
   const [courier, setCourier] = useState('All');
   const [city, setCity] = useState('All');
@@ -69,6 +72,8 @@ export default function OrdersPage() {
   const [sortBy, setSortBy] = useState<
     | 'order_no_asc'
     | 'order_no_desc'
+    | 'phone_asc'
+    | 'phone_desc'
     | 'date_desc'
     | 'date_asc'
     | 'amount_desc'
@@ -179,6 +184,7 @@ export default function OrdersPage() {
 
   const queryParams = new URLSearchParams();
   if (search) queryParams.set('search', search);
+  if (phoneFilter) queryParams.set('phone', phoneFilter);
   if (status !== 'All') queryParams.set('status', status);
   if (courier !== 'All') queryParams.set('courier', courier);
   if (city !== 'All') queryParams.set('city', city);
@@ -191,11 +197,20 @@ export default function OrdersPage() {
     revalidateOnFocus: true,
   });
 
+  // Also fetch full list for phone autocomplete suggestions
+  const { data: allUnfilteredData } = useSWR('/api/orders', fetcher);
+  const allUnfilteredOrders: Order[] = allUnfilteredData?.orders || [];
+
   const allOrders: Order[] = data?.orders || [];
 
   const getNumericOrderNo = (orderNo: string): number => {
     const num = parseInt(orderNo.replace(/\D/g, ''), 10);
     return isNaN(num) ? 0 : num;
+  };
+
+  const getCleanPhoneKey = (phone?: string | null): string => {
+    const d = (phone || '').replace(/\D/g, '');
+    return d.length === 12 && d.startsWith('91') ? d.slice(2) : d;
   };
 
   const sortedOrders = [...allOrders].sort((a, b) => {
@@ -208,6 +223,10 @@ export default function OrdersPage() {
         const diff = getNumericOrderNo(b.order_no) - getNumericOrderNo(a.order_no);
         return diff !== 0 ? diff : b.order_no.localeCompare(a.order_no, undefined, { numeric: true });
       }
+      case 'phone_asc':
+        return getCleanPhoneKey(a.phone).localeCompare(getCleanPhoneKey(b.phone), undefined, { numeric: true });
+      case 'phone_desc':
+        return getCleanPhoneKey(b.phone).localeCompare(getCleanPhoneKey(a.phone), undefined, { numeric: true });
       case 'date_asc':
         return a.order_date.localeCompare(b.order_date) || getNumericOrderNo(a.order_no) - getNumericOrderNo(b.order_no);
       case 'date_desc':
@@ -224,6 +243,55 @@ export default function OrdersPage() {
         return 0;
     }
   });
+
+  // Unique customer phone options for autocomplete
+  const customerPhoneOptions = React.useMemo(() => {
+    const map = new Map<string, { phone: string; name: string; city: string; count: number }>();
+    for (const ord of allUnfilteredOrders) {
+      const key = getCleanPhoneKey(ord.phone) || ord.phone;
+      if (!key) continue;
+      const existing = map.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        map.set(key, {
+          phone: ord.phone,
+          name: ord.customer_name,
+          city: ord.city,
+          count: 1,
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [allUnfilteredOrders]);
+
+  // Detect if the active phone filter / search resolves to a single customer phone number
+  const activeCustomerSummary = React.useMemo(() => {
+    const hasPhoneQuery = Boolean(phoneFilter.trim()) || Boolean(search.trim().replace(/\D/g, '').length >= 6);
+    if (!hasPhoneQuery || sortedOrders.length === 0) return null;
+
+    const uniquePhoneKeys = new Set(sortedOrders.map((o) => getCleanPhoneKey(o.phone)));
+    if (uniquePhoneKeys.size !== 1) return null;
+
+    const first = sortedOrders[0];
+    const totalCustomerAmount = sortedOrders.reduce((sum, o) => sum + (Number(o.amount) || 0), 0);
+    const totalCustomerBoxes = sortedOrders.reduce((sum, o) => sum + (Number(o.boxes) || 1), 0);
+    const customerNames = Array.from(new Set(sortedOrders.map((o) => o.customer_name))).join(', ');
+
+    return {
+      name: customerNames,
+      phone: first.phone,
+      phoneDisplay: formatPhoneDisplay(first.phone),
+      city: first.city,
+      address: first.address,
+      orderCount: sortedOrders.length,
+      totalBoxes: totalCustomerBoxes,
+      totalAmount: totalCustomerAmount,
+      latestOrderNo: first.order_no,
+      courier: first.courier,
+      awbNo: first.awb_no,
+    };
+  }, [phoneFilter, search, sortedOrders]);
 
   const totalCount = sortedOrders.length;
   const totalPages = Math.ceil(totalCount / pageSize) || 1;
@@ -572,12 +640,47 @@ export default function OrdersPage() {
                 setPage(1);
               }}
               placeholder={t.buttons.search}
-              className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-xs sm:text-sm focus:ring-2 focus:ring-[#7A1626] outline-none"
+              className="w-full pl-10 pr-7 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-xs sm:text-sm focus:ring-2 focus:ring-[#7A1626] outline-none"
             />
             {search && (
               <button
                 onClick={() => setSearch('')}
                 className="absolute right-3 top-2.5 text-xs text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Dedicated Customer Phone Number Filter / Lookup */}
+          <div className="relative flex-1">
+            <Phone className="w-4 h-4 absolute left-3.5 top-3 text-[#7A1626] dark:text-[#E5B84B]" />
+            <input
+              type="tel"
+              list="customer-phone-list"
+              value={phoneFilter}
+              onChange={(e) => {
+                setPhoneFilter(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Filter by Customer Phone No (e.g. 9876543210 or +44...)"
+              className="w-full pl-10 pr-7 py-2 rounded-xl border border-[#EFE4D3] dark:border-[#3A1B23] bg-[#FBF6EF]/60 dark:bg-[#180A0E] text-xs sm:text-sm font-mono focus:ring-2 focus:ring-[#7A1626] outline-none"
+            />
+            <datalist id="customer-phone-list">
+              {customerPhoneOptions.map((c) => (
+                <option key={c.phone} value={c.phone}>
+                  {c.name} ({c.city}) — {c.count} {c.count === 1 ? 'order' : 'orders'}
+                </option>
+              ))}
+            </datalist>
+            {phoneFilter && (
+              <button
+                onClick={() => {
+                  setPhoneFilter('');
+                  setPage(1);
+                }}
+                className="absolute right-3 top-2.5 text-xs text-gray-400 hover:text-gray-600 cursor-pointer"
+                title="Clear phone filter"
               >
                 ✕
               </button>
@@ -647,6 +750,8 @@ export default function OrdersPage() {
           >
             <option value="order_no_asc">Sort: Order No (1 → 9999)</option>
             <option value="order_no_desc">Sort: Order No (9999 → 1)</option>
+            <option value="phone_asc">Sort: Phone No (0 → 9)</option>
+            <option value="phone_desc">Sort: Phone No (9 → 0)</option>
             <option value="date_desc">Sort: Date (Newest First)</option>
             <option value="date_asc">Sort: Date (Oldest First)</option>
             <option value="amount_desc">Sort: Amount (High → Low)</option>
@@ -679,11 +784,19 @@ export default function OrdersPage() {
               }}
               className="px-2.5 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D]"
             />
-            {(dateFrom || dateTo || status !== 'All' || courier !== 'All' || city !== 'All' || search || sortBy !== 'order_no_asc') && (
+            {(dateFrom ||
+              dateTo ||
+              status !== 'All' ||
+              courier !== 'All' ||
+              city !== 'All' ||
+              search ||
+              phoneFilter ||
+              sortBy !== 'order_no_asc') && (
               <button
                 type="button"
                 onClick={() => {
                   setSearch('');
+                  setPhoneFilter('');
                   setStatus('All');
                   setCourier('All');
                   setCity('All');
@@ -700,6 +813,69 @@ export default function OrdersPage() {
           </div>
         </div>
       </div>
+
+      {/* Customized Customer Profile Banner when a customer's phone number is typed/filtered */}
+      {activeCustomerSummary && (
+        <div className="bg-gradient-to-r from-[#7A1626] to-[#5B0E1B] text-white p-5 rounded-3xl shadow-md border border-[#E5B84B]/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-in fade-in">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
+              <UserCheck className="w-6 h-6 text-[#E5B84B]" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#E5B84B] text-[#4A0B15]">
+                  Customized Customer View
+                </span>
+                <span className="text-xs font-mono text-white/90">
+                  {activeCustomerSummary.phoneDisplay.formatted}
+                </span>
+                {activeCustomerSummary.phoneDisplay.isInternational && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/30 border border-blue-300/40">
+                    INTL
+                  </span>
+                )}
+              </div>
+              <h3 className="text-lg sm:text-xl font-serif font-bold mt-1">
+                {activeCustomerSummary.name}{' '}
+                <span className="text-xs font-sans font-normal text-white/80">
+                  ({activeCustomerSummary.city})
+                </span>
+              </h3>
+              {activeCustomerSummary.address && (
+                <p className="text-xs text-white/75 mt-0.5">{activeCustomerSummary.address}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 sm:gap-5">
+            <div className="bg-white/10 px-3.5 py-2 rounded-2xl text-center">
+              <span className="block text-[10px] uppercase tracking-wider text-white/70">Orders</span>
+              <span className="text-base font-bold text-[#E5B84B]">{activeCustomerSummary.orderCount}</span>
+            </div>
+            <div className="bg-white/10 px-3.5 py-2 rounded-2xl text-center">
+              <span className="block text-[10px] uppercase tracking-wider text-white/70">Total Boxes</span>
+              <span className="text-base font-bold text-[#E5B84B]">{activeCustomerSummary.totalBoxes}</span>
+            </div>
+            <div className="bg-white/10 px-3.5 py-2 rounded-2xl text-center">
+              <span className="block text-[10px] uppercase tracking-wider text-white/70">Total Value</span>
+              <span className="text-base font-bold text-emerald-300">
+                {formatCurrency(activeCustomerSummary.totalAmount)}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setPhoneFilter('');
+                setSearch('');
+                setPage(1);
+              }}
+              className="px-3.5 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-xs font-semibold text-white transition-colors cursor-pointer"
+            >
+              Show All Customers ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Orders List / Table */}
       <div className="bg-white dark:bg-[#1E0D12] rounded-3xl shadow-sm border border-[#EFE4D3] dark:border-[#3A1B23] overflow-hidden">
@@ -739,7 +915,26 @@ export default function OrdersPage() {
                       )}
                     </button>
                   </th>
-                  <th className="py-3.5 px-4">{t.orderFields.customerName}</th>
+                  <th className="py-3.5 px-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSortBy((prev) => (prev === 'phone_asc' ? 'phone_desc' : 'phone_asc'));
+                        setPage(1);
+                      }}
+                      className="inline-flex items-center gap-1 uppercase tracking-wider font-bold text-gray-700 dark:text-gray-300 hover:text-[#7A1626] dark:hover:text-[#E5B84B] cursor-pointer"
+                      title="Click to sort by Phone Number"
+                    >
+                      <span>{t.orderFields.customerName} / Phone</span>
+                      {sortBy === 'phone_asc' ? (
+                        <ArrowUp className="w-3.5 h-3.5 text-[#7A1626] dark:text-[#E5B84B]" />
+                      ) : sortBy === 'phone_desc' ? (
+                        <ArrowDown className="w-3.5 h-3.5 text-[#7A1626] dark:text-[#E5B84B]" />
+                      ) : (
+                        <ArrowUpDown className="w-3.5 h-3.5 opacity-50" />
+                      )}
+                    </button>
+                  </th>
                   <th className="py-3.5 px-4">{t.orderFields.city}</th>
                   <th className="py-3.5 px-4">{t.orderFields.product}</th>
                   <th className="py-3.5 px-4">{t.orderFields.totalItems}</th>
@@ -773,7 +968,17 @@ export default function OrdersPage() {
                           {o.customer_name}
                         </div>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[11px] text-gray-500 font-mono">{phoneInfo.formatted}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPhoneFilter(o.phone);
+                              setPage(1);
+                            }}
+                            className="text-[11px] text-[#7A1626] dark:text-[#E5B84B] hover:underline font-mono font-semibold cursor-pointer"
+                            title="Click to show only this customer's orders"
+                          >
+                            {phoneInfo.formatted}
+                          </button>
                           {phoneInfo.isInternational && (
                             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                               <Globe className="w-2.5 h-2.5" />

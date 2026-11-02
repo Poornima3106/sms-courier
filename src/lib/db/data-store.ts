@@ -335,8 +335,24 @@ export async function updateUser(id: string, updates: Partial<User>): Promise<Us
   return store.users[idx];
 }
 
+function matchesPhoneQuery(orderPhone: string, query: string): boolean {
+  const rawOrder = (orderPhone || '').toLowerCase().trim();
+  const rawQuery = query.toLowerCase().trim();
+  if (!rawQuery) return true;
+  if (rawOrder.includes(rawQuery)) return true;
+
+  const orderDigits = rawOrder.replace(/\D/g, '');
+  const queryDigits = rawQuery.replace(/\D/g, '');
+  if (!queryDigits) return false;
+
+  if (orderDigits.includes(queryDigits)) return true;
+  const orderWith91 = orderDigits.length === 10 ? `91${orderDigits}` : orderDigits;
+  return orderWith91.includes(queryDigits);
+}
+
 export async function listOrders(filters?: {
   search?: string;
+  phone?: string;
   status?: string;
   courier?: string;
   city?: string;
@@ -392,14 +408,24 @@ export async function listOrders(filters?: {
       updated_at: o.updatedAt.toISOString(),
     }));
 
+    if (filters?.phone) {
+      const pQuery = filters.phone.trim();
+      if (pQuery) {
+        items = items.filter((o) => matchesPhoneQuery(o.phone, pQuery));
+      }
+    }
+
     if (filters?.search) {
       const q = filters.search.toLowerCase().trim();
-      items = items.filter(
-        (o) =>
-          o.order_no.toLowerCase().includes(q) ||
-          o.customer_name.toLowerCase().includes(q) ||
-          o.phone.includes(q) ||
-          (o.awb_no && o.awb_no.toLowerCase().includes(q))
+      const qDigits = q.replace(/\D/g, '');
+      const looksLikePhoneOnly = q.startsWith('+') || qDigits.length >= 7;
+      items = items.filter((o) =>
+        looksLikePhoneOnly
+          ? matchesPhoneQuery(o.phone, q)
+          : o.order_no.toLowerCase().includes(q) ||
+            o.customer_name.toLowerCase().includes(q) ||
+            matchesPhoneQuery(o.phone, q) ||
+            (o.awb_no && o.awb_no.toLowerCase().includes(q))
       );
     }
     return items;
@@ -423,14 +449,23 @@ export async function listOrders(filters?: {
   if (filters?.dateTo) {
     items = items.filter((o) => o.order_date <= filters.dateTo!);
   }
+  if (filters?.phone) {
+    const pQuery = filters.phone.trim();
+    if (pQuery) {
+      items = items.filter((o) => matchesPhoneQuery(o.phone, pQuery));
+    }
+  }
   if (filters?.search) {
     const q = filters.search.toLowerCase().trim();
-    items = items.filter(
-      (o) =>
-        o.order_no.toLowerCase().includes(q) ||
-        o.customer_name.toLowerCase().includes(q) ||
-        o.phone.includes(q) ||
-        (o.awb_no && o.awb_no.toLowerCase().includes(q))
+    const qDigits = q.replace(/\D/g, '');
+    const looksLikePhoneOnly = q.startsWith('+') || qDigits.length >= 7;
+    items = items.filter((o) =>
+      looksLikePhoneOnly
+        ? matchesPhoneQuery(o.phone, q)
+        : o.order_no.toLowerCase().includes(q) ||
+          o.customer_name.toLowerCase().includes(q) ||
+          matchesPhoneQuery(o.phone, q) ||
+          (o.awb_no && o.awb_no.toLowerCase().includes(q))
     );
   }
 
