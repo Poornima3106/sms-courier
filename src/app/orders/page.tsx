@@ -70,6 +70,7 @@ export default function OrdersPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [sortBy, setSortBy] = useState<
+    | 'latest'
     | 'order_no_asc'
     | 'order_no_desc'
     | 'phone_asc'
@@ -80,7 +81,7 @@ export default function OrdersPage() {
     | 'amount_asc'
     | 'boxes_desc'
     | 'name_asc'
-  >('order_no_asc');
+  >('latest');
 
   // Masters
   const [couriers, setCouriers] = useState<string[]>([
@@ -215,6 +216,12 @@ export default function OrdersPage() {
 
   const sortedOrders = [...allOrders].sort((a, b) => {
     switch (sortBy) {
+      case 'latest': {
+        const timeDiff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        if (timeDiff !== 0) return timeDiff;
+        const numDiff = getNumericOrderNo(b.order_no) - getNumericOrderNo(a.order_no);
+        return numDiff !== 0 ? numDiff : b.order_no.localeCompare(a.order_no, undefined, { numeric: true });
+      }
       case 'order_no_asc': {
         const diff = getNumericOrderNo(a.order_no) - getNumericOrderNo(b.order_no);
         return diff !== 0 ? diff : a.order_no.localeCompare(b.order_no, undefined, { numeric: true });
@@ -748,8 +755,9 @@ export default function OrdersPage() {
             }}
             className="px-3 py-2 rounded-xl border border-[#EFE4D3] dark:border-[#3A1B23] bg-[#FBF6EF] dark:bg-[#180A0E] text-[#7A1626] dark:text-[#E5B84B] text-xs font-bold focus:ring-2 focus:ring-[#7A1626] outline-none"
           >
+            <option value="latest">Sort By: Latest Booked First</option>
+            <option value="order_no_desc">Sort: Order No (Latest → Oldest)</option>
             <option value="order_no_asc">Sort: Order No (1 → 9999)</option>
-            <option value="order_no_desc">Sort: Order No (9999 → 1)</option>
             <option value="phone_asc">Sort: Phone No (0 → 9)</option>
             <option value="phone_desc">Sort: Phone No (9 → 0)</option>
             <option value="date_desc">Sort: Date (Newest First)</option>
@@ -791,7 +799,7 @@ export default function OrdersPage() {
               city !== 'All' ||
               search ||
               phoneFilter ||
-              sortBy !== 'order_no_asc') && (
+              sortBy !== 'latest') && (
               <button
                 type="button"
                 onClick={() => {
@@ -802,7 +810,7 @@ export default function OrdersPage() {
                   setCity('All');
                   setDateFrom('');
                   setDateTo('');
-                  setSortBy('order_no_asc');
+                  setSortBy('latest');
                   setPage(1);
                 }}
                 className="text-red-500 hover:text-red-700 font-semibold text-xs ml-2 cursor-pointer"

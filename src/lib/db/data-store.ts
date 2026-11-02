@@ -428,7 +428,13 @@ export async function listOrders(filters?: {
             (o.awb_no && o.awb_no.toLowerCase().includes(q))
       );
     }
-    return items;
+    return items.sort((a, b) => {
+      const timeDiff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      const numA = parseInt(a.order_no.replace(/\D/g, ''), 10) || 0;
+      const numB = parseInt(b.order_no.replace(/\D/g, ''), 10) || 0;
+      return numB - numA;
+    });
   }
 
   const store = readLocalStore();
@@ -469,7 +475,13 @@ export async function listOrders(filters?: {
     );
   }
 
-  return items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  return items.sort((a, b) => {
+    const timeDiff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    if (timeDiff !== 0) return timeDiff;
+    const numA = parseInt(a.order_no.replace(/\D/g, ''), 10) || 0;
+    const numB = parseInt(b.order_no.replace(/\D/g, ''), 10) || 0;
+    return numB - numA;
+  });
 }
 
 export async function getOrderByOrderNo(orderNo: string): Promise<Order | null> {
