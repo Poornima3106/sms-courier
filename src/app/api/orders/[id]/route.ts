@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth/jwt';
-import { updateOrder, deleteOrder, logActivity, listOrders } from '@/lib/db/data-store';
+import { updateOrder, deleteOrder, logActivity, listOrders, getOrderByOrderNo } from '@/lib/db/data-store';
+import { orderFormSchema } from '@/lib/validations/order';
+
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const order = (await listOrders()).find((item) => item.id === id);
+  if (!order) {
+    return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+  }
+
+  return NextResponse.json({ order });
+}
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -9,18 +25,42 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const { id } = await params;
-  const body = await req.json();
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
 
-  const updated = await updateOrder(id, body);
+  const validated = orderFormSchema.partial().safeParse(body);
+  if (!validated.success) {
+    return NextResponse.json(
+      { error: 'Validation failed', details: validated.error.flatten().fieldErrors },
+      { status: 400 }
+    );
+  }
+
+  const updates = validated.data;
+  if (updates.order_no) {
+    const existing = await getOrderByOrderNo(updates.order_no);
+    if (existing && existing.id !== id) {
+      return NextResponse.json(
+        { error: `Order number ${updates.order_no} already exists. Please use a unique order number.` },
+        { status: 409 }
+      );
+    }
+  }
+
+  const updated = await updateOrder(id, updates);
   if (!updated) {
     return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   }
 
-  if (body.status) {
+  if (updates.status && Object.keys(updates).length === 1) {
     await logActivity(
       session.userId,
       session.full_name,
-      `Updated status of order ${updated.order_no} to ${body.status}`,
+      `Updated status of order ${updated.order_no} to ${updates.status}`,
       updated.order_no
     );
   } else {
@@ -39,14 +79,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  // Strict server-side role check: Only owner can delete orders!
-  if (session.role !== 'owner') {
-    return NextResponse.json(
-      { error: 'Forbidden: Only the owner has permission to delete orders.' },
-      { status: 403 }
-    );
   }
 
   const { id } = await params;

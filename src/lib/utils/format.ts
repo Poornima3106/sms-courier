@@ -22,8 +22,39 @@ export function formatCurrency(amount: number | string | null | undefined): stri
   }).format(val);
 }
 
+export function formatPhoneDisplay(phone?: string | null): { formatted: string; isInternational: boolean } {
+  const raw = (phone || '').trim();
+  if (!raw) return { formatted: '—', isInternational: false };
+
+  const cleaned = raw.replace(/[\s().-]/g, '');
+  if (/^[6-9]\d{9}$/.test(cleaned)) {
+    return {
+      formatted: `+91 ${cleaned.slice(0, 5)} ${cleaned.slice(5)}`,
+      isInternational: false,
+    };
+  }
+  if (/^\+?91[6-9]\d{9}$/.test(cleaned)) {
+    const ten = cleaned.slice(-10);
+    return {
+      formatted: `+91 ${ten.slice(0, 5)} ${ten.slice(5)}`,
+      isInternational: false,
+    };
+  }
+  if (cleaned.startsWith('+')) {
+    return {
+      formatted: raw,
+      isInternational: !cleaned.startsWith('+91'),
+    };
+  }
+  return {
+    formatted: raw,
+    isInternational: false,
+  };
+}
+
 export function getWhatsAppUrl(customerName: string, orderNo: string, courierName?: string | null, awbNo?: string | null, phone?: string): string {
-  const cleanPhone = (phone || '').replace(/\D/g, '').slice(-10);
+  const phoneDigits = (phone || '').replace(/\D/g, '');
+  const cleanPhone = phoneDigits.length === 10 ? `91${phoneDigits}` : phoneDigits;
   let text = '';
   if (awbNo) {
     const courier = courierName || 'Courier';
@@ -31,7 +62,7 @@ export function getWhatsAppUrl(customerName: string, orderNo: string, courierNam
   } else {
     text = `Vanakkam ${customerName}, your order ${orderNo} from Sri Mahadevaiyer Sweets has been received and is being prepared for dispatch. Thank you!`;
   }
-  return `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(text)}`;
+  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
 }
 
 export function getLiveTrackingReportUrl(courierName?: string | null, awbNo?: string | null): string {

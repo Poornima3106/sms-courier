@@ -18,7 +18,7 @@ export const orders = pgTable(
     orderNo: text('order_no').notNull().unique(),
     customerName: text('customer_name').notNull(),
     phone: text('phone').notNull(),
-    address: text('address').notNull(),
+    address: text('address').notNull().default(''),
     city: text('city').notNull(),
     pincode: text('pincode').notNull(),
     product: text('product').notNull(),

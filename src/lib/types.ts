@@ -26,7 +26,7 @@ export interface Order {
   id: string;
   order_no: string; // e.g. 1001
   customer_name: string;
-  phone: string; // 10 digits, starts with 6-9
+  phone: string; // International phone number in E.164 format
   address: string;
   city: string;
   pincode: string; // 6 digits

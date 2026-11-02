@@ -322,7 +322,7 @@ export default function DispatchPage() {
                           <span className="text-xs text-gray-500">({o.city})</span>
                         </div>
                         <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-1">
-                          <span className="font-semibold text-gray-800 dark:text-gray-200">{o.product}</span> • <span className="font-bold text-[#7A1626] dark:text-[#E5B84B]">{o.boxes || 1} Total Items</span> • {o.address} • Ph: {o.phone}
+                          <span className="font-semibold text-gray-800 dark:text-gray-200">{o.product}</span> • <span className="font-bold text-[#7A1626] dark:text-[#E5B84B]">{o.boxes || 1} Total Items</span>{o.address ? ` • ${o.address}` : ''} • Ph: {o.phone}
                         </p>
                         <p className="text-[11px] text-gray-400 mt-0.5">
                           Ordered on: {formatDate(o.order_date)} • Amount: ₹{o.amount} ({o.payment_status})

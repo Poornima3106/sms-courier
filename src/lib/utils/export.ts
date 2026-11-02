@@ -10,7 +10,7 @@ export function exportOrdersToExcel(orders: Order[], fileName = 'SMS_Orders_Expo
     'Order No': o.order_no,
     'Customer Name': o.customer_name,
     'Phone': o.phone,
-    'Address': o.address,
+    'Address': o.address || '—',
     'City': o.city,
     'PIN Code': o.pincode,
     'Product / Sweet Box': o.product,

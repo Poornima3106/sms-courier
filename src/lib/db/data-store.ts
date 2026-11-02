@@ -578,13 +578,21 @@ export async function updateOrder(id: string, updates: Partial<Order>): Promise<
   const db = getDb();
   if (db) {
     const val: any = { updatedAt: new Date() };
+    if (updates.order_no !== undefined) val.orderNo = updates.order_no.toUpperCase().trim();
+    if (updates.customer_name !== undefined) val.customerName = updates.customer_name;
+    if (updates.phone !== undefined) val.phone = updates.phone;
+    if (updates.address !== undefined) val.address = updates.address;
+    if (updates.city !== undefined) val.city = updates.city;
+    if (updates.pincode !== undefined) val.pincode = updates.pincode;
+    if (updates.order_date !== undefined) val.orderDate = updates.order_date;
+    if (updates.amount !== undefined) val.amount = updates.amount.toString();
     if (updates.status !== undefined) val.status = updates.status;
     if (updates.product !== undefined) val.product = updates.product;
     if (updates.courier !== undefined) val.courier = updates.courier;
     if (updates.awb_no !== undefined) val.awbNo = updates.awb_no;
-    if (updates.weight_kg !== undefined) val.weightKg = updates.weight_kg?.toString();
+    if (updates.weight_kg !== undefined) val.weightKg = updates.weight_kg === null ? null : updates.weight_kg.toString();
     if (updates.boxes !== undefined) val.boxes = updates.boxes;
-    if (updates.courier_charge !== undefined) val.courierCharge = updates.courier_charge?.toString();
+    if (updates.courier_charge !== undefined) val.courierCharge = updates.courier_charge === null ? null : updates.courier_charge.toString();
     if (updates.dispatch_date !== undefined) val.dispatchDate = updates.dispatch_date;
     if (updates.payment_status !== undefined) val.paymentStatus = updates.payment_status;
 

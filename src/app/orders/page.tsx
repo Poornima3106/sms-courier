@@ -4,14 +4,25 @@ import React, { useState, useEffect } from 'react';
 import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n';
-import { Order, OrderStatus } from '@/lib/types';
+import { Order, OrderStatus, PaymentStatus } from '@/lib/types';
 import StatusBadge from '@/components/StatusBadge';
 import ConfirmModal from '@/components/ConfirmModal';
-import { formatDate, formatCurrency, getWhatsAppUrl, getTrackingUrl } from '@/lib/utils/format';
+import {
+  formatDate,
+  formatCurrency,
+  formatPhoneDisplay,
+  getWhatsAppUrl,
+  getTrackingUrl,
+} from '@/lib/utils/format';
 import { exportOrdersToExcel, exportOrdersToPdf } from '@/lib/utils/export';
 import {
+  COUNTRY_CODES,
+  combinePhoneInput,
+  parseStoredPhone,
+  phoneNumberSchema,
+} from '@/lib/validations/order';
+import {
   Search,
-  Filter,
   PlusCircle,
   ExternalLink,
   MessageCircle,
@@ -27,6 +38,7 @@ import {
   AlertCircle,
   Check,
   X,
+  Globe,
 } from 'lucide-react';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -53,8 +65,21 @@ export default function OrdersPage() {
   const [dateTo, setDateTo] = useState('');
 
   // Masters
-  const [couriers, setCouriers] = useState<string[]>([]);
-  const [cities, setCities] = useState<string[]>([]);
+  const [couriers, setCouriers] = useState<string[]>([
+    'Professional',
+    'ST Courier',
+    'DTDC',
+    'India Post (Speed Post)',
+  ]);
+  const [cities, setCities] = useState<string[]>([
+    'Pollachi',
+    'Coimbatore',
+    'Chennai',
+    'Madurai',
+    'Trichy',
+    'Salem',
+    'Tirunelveli',
+  ]);
   const [products, setProducts] = useState<string[]>([
     'Diwali Feast Box',
     'Mixed Sweets Box',
@@ -70,7 +95,36 @@ export default function OrdersPage() {
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
-  // Courier & AWB Assignment Modal State
+  // Full Edit Order Modal State
+  const [orderToEdit, setOrderToEdit] = useState<Order | null>(null);
+  const [editOrderNo, setEditOrderNo] = useState('');
+  const [editOrderDate, setEditOrderDate] = useState('');
+  const [editCustomerName, setEditCustomerName] = useState('');
+  const [editCountryCode, setEditCountryCode] = useState('+91');
+  const [editPhone, setEditPhone] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editCustomCity, setEditCustomCity] = useState('');
+  const [editIsCustomCity, setEditIsCustomCity] = useState(false);
+  const [editPincode, setEditPincode] = useState('');
+  const [editProduct, setEditProduct] = useState('');
+  const [editCustomProduct, setEditCustomProduct] = useState('');
+  const [editIsCustomProduct, setEditIsCustomProduct] = useState(false);
+  const [editBoxes, setEditBoxes] = useState('1');
+  const [editPaymentStatus, setEditPaymentStatus] = useState<PaymentStatus>('Paid');
+  const [editAmount, setEditAmount] = useState('');
+  const [editStatus, setEditStatus] = useState<OrderStatus>('Pending');
+  const [editCourier, setEditCourier] = useState('');
+  const [editCustomCourier, setEditCustomCourier] = useState('');
+  const [editIsCustomCourier, setEditIsCustomCourier] = useState(false);
+  const [editAwb, setEditAwb] = useState('');
+  const [editDispatchDate, setEditDispatchDate] = useState('');
+  const [editWeight, setEditWeight] = useState('');
+  const [editCharge, setEditCharge] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // Courier & AWB Quick Assignment Modal State
   const [orderForCourier, setOrderForCourier] = useState<Order | null>(null);
   const [modalProduct, setModalProduct] = useState('Diwali Feast Box');
   const [modalCustomProduct, setModalCustomProduct] = useState('');
@@ -102,8 +156,8 @@ export default function OrdersPage() {
           const cList = d.items.filter((m: any) => m.category === 'courier').map((m: any) => m.name);
           const ctList = d.items.filter((m: any) => m.category === 'city').map((m: any) => m.name);
           const pList = d.items.filter((m: any) => m.category === 'product').map((m: any) => m.name);
-          setCouriers(cList);
-          setCities(ctList);
+          if (cList.length > 0) setCouriers(cList);
+          if (ctList.length > 0) setCities(ctList);
           if (pList.length > 0) setProducts(pList);
         }
       })
@@ -144,6 +198,152 @@ export default function OrdersPage() {
       }
     } catch (err) {
       console.error('Failed to update status:', err);
+    }
+  };
+
+  const openEditOrderModal = (order: Order) => {
+    setOrderToEdit(order);
+    setEditError(null);
+    setEditOrderNo(order.order_no);
+    setEditOrderDate(order.order_date);
+    setEditCustomerName(order.customer_name);
+
+    const parsedPhone = parseStoredPhone(order.phone);
+    setEditCountryCode(parsedPhone.countryCode);
+    setEditPhone(parsedPhone.localNumber);
+
+    setEditAddress(order.address || '');
+    setEditPincode(order.pincode);
+
+    if (cities.length > 0 && !cities.includes(order.city)) {
+      setEditIsCustomCity(true);
+      setEditCustomCity(order.city);
+      setEditCity(cities[0] || 'Pollachi');
+    } else {
+      setEditIsCustomCity(false);
+      setEditCustomCity('');
+      setEditCity(order.city || cities[0] || 'Pollachi');
+    }
+
+    if (products.length > 0 && !products.includes(order.product)) {
+      setEditIsCustomProduct(true);
+      setEditCustomProduct(order.product);
+      setEditProduct(products[0] || 'Diwali Feast Box');
+    } else {
+      setEditIsCustomProduct(false);
+      setEditCustomProduct('');
+      setEditProduct(order.product || products[0] || 'Diwali Feast Box');
+    }
+
+    setEditBoxes(String(order.boxes || 1));
+    setEditPaymentStatus(order.payment_status);
+    setEditAmount(String(order.amount));
+    setEditStatus(order.status);
+
+    if (order.courier && couriers.length > 0 && !couriers.includes(order.courier)) {
+      setEditIsCustomCourier(true);
+      setEditCustomCourier(order.courier);
+      setEditCourier('');
+    } else {
+      setEditIsCustomCourier(false);
+      setEditCustomCourier('');
+      setEditCourier(order.courier || '');
+    }
+
+    setEditAwb(order.awb_no || '');
+    setEditDispatchDate(order.dispatch_date || '');
+    setEditWeight(order.weight_kg != null ? String(order.weight_kg) : '');
+    setEditCharge(order.courier_charge != null ? String(order.courier_charge) : '');
+  };
+
+  const handleSaveEditOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!orderToEdit) return;
+
+    setEditError(null);
+
+    if (!editOrderNo.trim() || !/^\d+$/.test(editOrderNo.trim())) {
+      setEditError('Order number must contain only numbers (e.g. 1005)');
+      return;
+    }
+
+    if (!editCustomerName.trim() || editCustomerName.trim().length < 2) {
+      setEditError('Customer name must be at least 2 characters');
+      return;
+    }
+
+    const combinedPhone = combinePhoneInput(editCountryCode, editPhone);
+    const phoneCheck = phoneNumberSchema.safeParse(combinedPhone);
+    if (!phoneCheck.success) {
+      setEditError(
+        phoneCheck.error.issues[0]?.message ||
+          'Enter a valid 10-digit Indian mobile number or international number'
+      );
+      return;
+    }
+
+    const finalCity = editIsCustomCity ? editCustomCity.trim() : editCity.trim();
+    if (!finalCity || finalCity.length < 2) {
+      setEditError('Please select or enter a valid city');
+      return;
+    }
+
+    if (!editPincode.trim() || !/^\d{6}$/.test(editPincode.trim())) {
+      setEditError('PIN code must be exactly 6 digits');
+      return;
+    }
+
+    const finalProduct = editIsCustomProduct ? editCustomProduct.trim() : editProduct.trim();
+    if (!finalProduct || finalProduct.length < 2) {
+      setEditError('Please select or enter a valid sweet box product');
+      return;
+    }
+
+    const finalCourier = editIsCustomCourier
+      ? editCustomCourier.trim() || null
+      : editCourier.trim() || null;
+
+    setIsSavingEdit(true);
+
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(orderToEdit.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_no: editOrderNo.trim(),
+          order_date: editOrderDate,
+          customer_name: editCustomerName.trim(),
+          phone: combinedPhone,
+          address: editAddress.trim(),
+          city: finalCity,
+          pincode: editPincode.trim(),
+          product: finalProduct,
+          boxes: Math.max(1, Number(editBoxes) || 1),
+          payment_status: editPaymentStatus,
+          amount: Math.max(0, Number(editAmount) || 0),
+          status: editStatus,
+          courier: finalCourier,
+          awb_no: editAwb.trim() ? editAwb.trim().toUpperCase() : null,
+          dispatch_date: editDispatchDate || null,
+          weight_kg: editWeight ? Number(editWeight) : null,
+          courier_charge: editCharge ? Number(editCharge) : null,
+        }),
+      });
+
+      const resData = await res.json();
+      if (!res.ok) {
+        setEditError(resData.error || 'Failed to update order');
+        setIsSavingEdit(false);
+        return;
+      }
+
+      setOrderToEdit(null);
+      mutate(`/api/orders?${queryParams.toString()}`);
+      mutate('/api/orders');
+    } catch {
+      setEditError('An unexpected error occurred while saving changes.');
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -228,7 +428,7 @@ export default function OrdersPage() {
       setOrderForCourier(null);
       mutate(`/api/orders?${queryParams.toString()}`);
       mutate('/api/orders');
-    } catch (err: any) {
+    } catch {
       setCourierSaveError('An unexpected error occurred while saving.');
     } finally {
       setIsSavingCourier(false);
@@ -257,6 +457,9 @@ export default function OrdersPage() {
     exportOrdersToPdf(allOrders, 'Sri Mahadevaiyer Sweets – Orders Register');
   };
 
+  const selectedEditCountryOption =
+    COUNTRY_CODES.find((c) => c.code === editCountryCode) || COUNTRY_CODES[0];
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -266,7 +469,11 @@ export default function OrdersPage() {
             {t.nav.orders}
           </h2>
           <p className="text-xs sm:text-sm text-gray-500">
-            Search, filter, track, and update status • <span className="font-semibold text-gray-700 dark:text-gray-300">{totalCount} orders</span> • <span className="font-semibold text-[#7A1626] dark:text-[#E5B84B]">{allOrders.reduce((sum, o) => sum + (o.boxes || 1), 0)} total sweet boxes/items</span>
+            Search, filter, edit, track, and update status •{' '}
+            <span className="font-semibold text-gray-700 dark:text-gray-300">{totalCount} orders</span> •{' '}
+            <span className="font-semibold text-[#7A1626] dark:text-[#E5B84B]">
+              {allOrders.reduce((sum, o) => sum + (o.boxes || 1), 0)} total sweet boxes/items
+            </span>
           </p>
         </div>
 
@@ -456,9 +663,8 @@ export default function OrdersPage() {
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {paginatedOrders.map((o) => {
-                  const hasAwb = Boolean(o.awb_no);
                   const whatsAppUrl = getWhatsAppUrl(o.customer_name, o.order_no, o.courier, o.awb_no, o.phone);
-                  const trackingUrl = getTrackingUrl(o.courier, o.awb_no);
+                  const phoneInfo = formatPhoneDisplay(o.phone);
 
                   return (
                     <tr
@@ -473,12 +679,27 @@ export default function OrdersPage() {
                         <div className="text-[10px] text-gray-400">{formatDate(o.order_date)}</div>
                       </td>
 
-                      {/* Customer Name & Phone */}
+                      {/* Customer Name, Phone & Optional Address */}
                       <td className="py-3.5 px-4">
                         <div className="font-semibold text-gray-900 dark:text-gray-100">
                           {o.customer_name}
                         </div>
-                        <div className="text-[11px] text-gray-500 font-mono">{o.phone}</div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[11px] text-gray-500 font-mono">{phoneInfo.formatted}</span>
+                          {phoneInfo.isInternational && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                              <Globe className="w-2.5 h-2.5" />
+                              INTL
+                            </span>
+                          )}
+                        </div>
+                        {o.address ? (
+                          <div className="text-[10px] text-gray-400 truncate max-w-[180px]" title={o.address}>
+                            {o.address}
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-gray-400 italic">No address added</div>
+                        )}
                       </td>
 
                       {/* City & Pincode */}
@@ -599,15 +820,26 @@ export default function OrdersPage() {
                         )}
                       </td>
 
-                      {/* Actions: Courier, WhatsApp, Track, Delete */}
+                      {/* Actions: Edit Order, Courier, WhatsApp, Track, Delete */}
                       <td className="py-3.5 px-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* Edit Order Button */}
+                          <button
+                            type="button"
+                            onClick={() => openEditOrderModal(o)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 hover:bg-violet-100 text-[11px] font-semibold transition-colors cursor-pointer"
+                            title="Edit Order Details"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                            <span>Edit</span>
+                          </button>
+
                           {/* Assign / Edit Courier quick button */}
                           <button
                             type="button"
                             onClick={() => openCourierModal(o)}
                             className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 transition-colors cursor-pointer"
-                            title={o.courier ? "Edit Courier & AWB" : "Assign Courier & AWB"}
+                            title={o.courier ? 'Edit Courier & AWB' : 'Assign Courier & AWB'}
                           >
                             <Truck className="w-4 h-4" />
                           </button>
@@ -634,17 +866,15 @@ export default function OrdersPage() {
                             <ExternalLink className="w-4 h-4" />
                           </Link>
 
-                          {/* Owner-Only Delete Button */}
-                          {isOwner && (
-                            <button
-                              type="button"
-                              onClick={() => setOrderToDelete(o)}
-                              className="p-1.5 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 hover:bg-red-100 transition-colors"
-                              title="Delete Order (Owner Only)"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
+                          {/* Delete Order Button */}
+                          <button
+                            type="button"
+                            onClick={() => setOrderToDelete(o)}
+                            className="p-1.5 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 hover:bg-red-100 transition-colors cursor-pointer"
+                            title="Delete Order"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -687,6 +917,424 @@ export default function OrdersPage() {
         )}
       </div>
 
+      {/* Full Edit Order Modal */}
+      {orderToEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white dark:bg-[#1E0D12] rounded-3xl shadow-2xl border border-[#EFE4D3] dark:border-[#3A1B23] w-full max-w-2xl overflow-hidden my-8 animate-in fade-in zoom-in-95">
+            {/* Modal Header */}
+            <div className="bg-[#7A1626] text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                  <Edit className="w-5 h-5 text-[#E5B84B]" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-base sm:text-lg">
+                    Edit Order #{orderToEdit.order_no}
+                  </h3>
+                  <p className="text-xs text-white/80">
+                    Update customer, Indian/International phone, optional address, and shipment details
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/orders/add?edit=${encodeURIComponent(orderToEdit.id)}`}
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white transition-colors"
+                >
+                  Open Full Page
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setOrderToEdit(null)}
+                  className="text-white/70 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSaveEditOrder} className="p-6 space-y-4 text-xs max-h-[80vh] overflow-y-auto">
+              {editError && (
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 text-red-700 dark:text-red-300 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <p>{editError}</p>
+                </div>
+              )}
+
+              {/* Order No, Order Date, Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1">
+                    Order No *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editOrderNo}
+                    onChange={(e) => setEditOrderNo(e.target.value.replace(/\D/g, ''))}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] font-bold tracking-wider focus:ring-2 focus:ring-[#7A1626] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1">
+                    Order Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editOrderDate}
+                    onChange={(e) => setEditOrderDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] focus:ring-2 focus:ring-[#7A1626] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1">
+                    Order Status *
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value as OrderStatus)}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] font-semibold focus:ring-2 focus:ring-[#7A1626] outline-none"
+                  >
+                    {ALL_STATUSES.map((st) => (
+                      <option key={st} value={st}>
+                        {st}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Customer Name & Phone (Indian + International) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1">
+                    Customer Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editCustomerName}
+                    onChange={(e) => setEditCustomerName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] focus:ring-2 focus:ring-[#7A1626] outline-none"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                      Phone Number *
+                    </label>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#7A1626] dark:text-[#E5B84B]">
+                      <Globe className="w-3 h-3" />
+                      Indian &amp; Intl
+                    </span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <select
+                      aria-label="Country Code"
+                      value={editCountryCode}
+                      onChange={(e) => setEditCountryCode(e.target.value)}
+                      className="w-36 px-2 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-[11px] font-semibold focus:ring-2 focus:ring-[#7A1626] outline-none shrink-0"
+                    >
+                      {COUNTRY_CODES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="tel"
+                      required
+                      inputMode="tel"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      placeholder={selectedEditCountryOption.placeholder}
+                      className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] font-mono focus:ring-2 focus:ring-[#7A1626] outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Delivery Address (Optional) */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                    Delivery Address <span className="font-normal normal-case text-gray-400">(Optional)</span>
+                  </label>
+                </div>
+                <textarea
+                  rows={2}
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  placeholder="Door No, Street Name, Area / Landmark (optional)"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] focus:ring-2 focus:ring-[#7A1626] outline-none"
+                />
+              </div>
+
+              {/* City & PIN Code */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                      City / Town *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setEditIsCustomCity(!editIsCustomCity)}
+                      className="text-[10px] font-semibold text-[#7A1626] dark:text-[#E5B84B] hover:underline cursor-pointer"
+                    >
+                      {editIsCustomCity ? '← Dropdown' : '+ Custom'}
+                    </button>
+                  </div>
+                  {editIsCustomCity ? (
+                    <input
+                      type="text"
+                      required
+                      value={editCustomCity}
+                      onChange={(e) => setEditCustomCity(e.target.value)}
+                      placeholder="Enter city name"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] focus:ring-2 focus:ring-[#7A1626] outline-none"
+                    />
+                  ) : (
+                    <select
+                      value={editCity}
+                      onChange={(e) => setEditCity(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] focus:ring-2 focus:ring-[#7A1626] outline-none"
+                    >
+                      {cities.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1">
+                    PIN Code (6 digits) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    value={editPincode}
+                    onChange={(e) => setEditPincode(e.target.value.replace(/\D/g, ''))}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] focus:ring-2 focus:ring-[#7A1626] outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Product, Boxes, Payment Status, Amount */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 border-t border-gray-100 dark:border-gray-800">
+                <div className="sm:col-span-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                      Sweet Box Product *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setEditIsCustomProduct(!editIsCustomProduct)}
+                      className="text-[10px] font-semibold text-[#7A1626] dark:text-[#E5B84B] hover:underline cursor-pointer"
+                    >
+                      {editIsCustomProduct ? '← Dropdown' : '+ Custom'}
+                    </button>
+                  </div>
+                  {editIsCustomProduct ? (
+                    <input
+                      type="text"
+                      required
+                      value={editCustomProduct}
+                      onChange={(e) => setEditCustomProduct(e.target.value)}
+                      placeholder="Sweet box name"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] focus:ring-2 focus:ring-[#7A1626] outline-none"
+                    />
+                  ) : (
+                    <select
+                      value={editProduct}
+                      onChange={(e) => setEditProduct(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] focus:ring-2 focus:ring-[#7A1626] outline-none"
+                    >
+                      {products.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1">
+                    Boxes *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={editBoxes}
+                    onChange={(e) => setEditBoxes(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] font-bold focus:ring-2 focus:ring-[#7A1626] outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1">
+                    Amount (₹) *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={editAmount}
+                    onChange={(e) => setEditAmount(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] font-bold focus:ring-2 focus:ring-[#7A1626] outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Payment Status & Courier / AWB fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-gray-100 dark:border-gray-800">
+                <div>
+                  <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1">
+                    Payment Status *
+                  </label>
+                  <select
+                    value={editPaymentStatus}
+                    onChange={(e) => setEditPaymentStatus(e.target.value as PaymentStatus)}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] focus:ring-2 focus:ring-[#7A1626] outline-none"
+                  >
+                    <option value="Paid">Paid</option>
+                    <option value="COD">COD (Cash on Delivery)</option>
+                    <option value="Pending">Pending</option>
+                  </select>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                      Courier Partner
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setEditIsCustomCourier(!editIsCustomCourier)}
+                      className="text-[10px] font-semibold text-[#7A1626] dark:text-[#E5B84B] hover:underline cursor-pointer"
+                    >
+                      {editIsCustomCourier ? '← Dropdown' : '+ Custom'}
+                    </button>
+                  </div>
+                  {editIsCustomCourier ? (
+                    <input
+                      type="text"
+                      value={editCustomCourier}
+                      onChange={(e) => setEditCustomCourier(e.target.value)}
+                      placeholder="Courier name"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] focus:ring-2 focus:ring-[#7A1626] outline-none"
+                    />
+                  ) : (
+                    <select
+                      value={editCourier}
+                      onChange={(e) => setEditCourier(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] focus:ring-2 focus:ring-[#7A1626] outline-none"
+                    >
+                      <option value="">— Unassigned —</option>
+                      {couriers.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1">
+                    AWB / Tracking No
+                  </label>
+                  <input
+                    type="text"
+                    value={editAwb}
+                    onChange={(e) => setEditAwb(e.target.value.toUpperCase())}
+                    placeholder="Optional AWB"
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] font-mono uppercase focus:ring-2 focus:ring-[#7A1626] outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">
+                    Dispatch Date
+                  </label>
+                  <input
+                    type="date"
+                    value={editDispatchDate}
+                    onChange={(e) => setEditDispatchDate(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">
+                    Weight (kg)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={editWeight}
+                    onChange={(e) => setEditWeight(e.target.value)}
+                    placeholder="1.0"
+                    className="w-full px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">
+                    Courier Charge (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editCharge}
+                    onChange={(e) => setEditCharge(e.target.value)}
+                    placeholder="90"
+                    className="w-full px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D]"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Buttons */}
+              <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOrderToEdit(null)}
+                  className="px-4 py-2 rounded-xl text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 text-xs font-medium cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="px-5 py-2 rounded-xl bg-[#7A1626] hover:bg-[#5B0E1B] text-white text-xs font-semibold shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isSavingEdit ? (
+                    <>
+                      <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Save Order Changes</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Assign / Edit Courier & AWB Modal */}
       {orderForCourier && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
@@ -699,7 +1347,7 @@ export default function OrdersPage() {
                 </div>
                 <div>
                   <h3 className="font-serif font-bold text-base sm:text-lg">
-                    Assign Courier & Tracking AWB
+                    Assign Courier &amp; Tracking AWB
                   </h3>
                   <p className="text-xs text-white/80">
                     Order {orderForCourier.order_no} • {orderForCourier.customer_name} ({orderForCourier.city})
@@ -937,7 +1585,7 @@ export default function OrdersPage() {
                   ) : (
                     <>
                       <Check className="w-3.5 h-3.5" />
-                      <span>Save & Update Courier</span>
+                      <span>Save &amp; Update Courier</span>
                     </>
                   )}
                 </button>
