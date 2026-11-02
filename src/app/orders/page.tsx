@@ -39,6 +39,9 @@ import {
   Check,
   X,
   Globe,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -63,6 +66,16 @@ export default function OrdersPage() {
   const [city, setCity] = useState('All');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [sortBy, setSortBy] = useState<
+    | 'order_no_asc'
+    | 'order_no_desc'
+    | 'date_desc'
+    | 'date_asc'
+    | 'amount_desc'
+    | 'amount_asc'
+    | 'boxes_desc'
+    | 'name_asc'
+  >('order_no_asc');
 
   // Masters
   const [couriers, setCouriers] = useState<string[]>([
@@ -179,9 +192,42 @@ export default function OrdersPage() {
   });
 
   const allOrders: Order[] = data?.orders || [];
-  const totalCount = allOrders.length;
+
+  const getNumericOrderNo = (orderNo: string): number => {
+    const num = parseInt(orderNo.replace(/\D/g, ''), 10);
+    return isNaN(num) ? 0 : num;
+  };
+
+  const sortedOrders = [...allOrders].sort((a, b) => {
+    switch (sortBy) {
+      case 'order_no_asc': {
+        const diff = getNumericOrderNo(a.order_no) - getNumericOrderNo(b.order_no);
+        return diff !== 0 ? diff : a.order_no.localeCompare(b.order_no, undefined, { numeric: true });
+      }
+      case 'order_no_desc': {
+        const diff = getNumericOrderNo(b.order_no) - getNumericOrderNo(a.order_no);
+        return diff !== 0 ? diff : b.order_no.localeCompare(a.order_no, undefined, { numeric: true });
+      }
+      case 'date_asc':
+        return a.order_date.localeCompare(b.order_date) || getNumericOrderNo(a.order_no) - getNumericOrderNo(b.order_no);
+      case 'date_desc':
+        return b.order_date.localeCompare(a.order_date) || getNumericOrderNo(b.order_no) - getNumericOrderNo(a.order_no);
+      case 'amount_desc':
+        return (Number(b.amount) || 0) - (Number(a.amount) || 0);
+      case 'amount_asc':
+        return (Number(a.amount) || 0) - (Number(b.amount) || 0);
+      case 'boxes_desc':
+        return (Number(b.boxes) || 1) - (Number(a.boxes) || 1);
+      case 'name_asc':
+        return a.customer_name.localeCompare(b.customer_name);
+      default:
+        return 0;
+    }
+  });
+
+  const totalCount = sortedOrders.length;
   const totalPages = Math.ceil(totalCount / pageSize) || 1;
-  const paginatedOrders = allOrders.slice((page - 1) * pageSize, page * pageSize);
+  const paginatedOrders = sortedOrders.slice((page - 1) * pageSize, page * pageSize);
 
   const isOwner = currentUser?.role === 'owner';
 
@@ -450,11 +496,11 @@ export default function OrdersPage() {
   };
 
   const handleExportExcel = () => {
-    exportOrdersToExcel(allOrders, `Sri_Mahadevaiyer_Orders_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    exportOrdersToExcel(sortedOrders, `Sri_Mahadevaiyer_Orders_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   const handleExportPdf = () => {
-    exportOrdersToPdf(allOrders, 'Sri Mahadevaiyer Sweets – Orders Register');
+    exportOrdersToPdf(sortedOrders, 'Sri Mahadevaiyer Sweets – Orders Register');
   };
 
   const selectedEditCountryOption =
@@ -588,6 +634,26 @@ export default function OrdersPage() {
               </option>
             ))}
           </select>
+
+          {/* Sort By Dropdown */}
+          <select
+            aria-label="Sort Orders By"
+            value={sortBy}
+            onChange={(e) => {
+              setSortBy(e.target.value as any);
+              setPage(1);
+            }}
+            className="px-3 py-2 rounded-xl border border-[#EFE4D3] dark:border-[#3A1B23] bg-[#FBF6EF] dark:bg-[#180A0E] text-[#7A1626] dark:text-[#E5B84B] text-xs font-bold focus:ring-2 focus:ring-[#7A1626] outline-none"
+          >
+            <option value="order_no_asc">Sort: Order No (1 → 9999)</option>
+            <option value="order_no_desc">Sort: Order No (9999 → 1)</option>
+            <option value="date_desc">Sort: Date (Newest First)</option>
+            <option value="date_asc">Sort: Date (Oldest First)</option>
+            <option value="amount_desc">Sort: Amount (High → Low)</option>
+            <option value="amount_asc">Sort: Amount (Low → High)</option>
+            <option value="boxes_desc">Sort: Total Items (High → Low)</option>
+            <option value="name_asc">Sort: Customer Name (A → Z)</option>
+          </select>
         </div>
 
         {/* Date Filters Row */}
@@ -613,7 +679,7 @@ export default function OrdersPage() {
               }}
               className="px-2.5 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D]"
             />
-            {(dateFrom || dateTo || status !== 'All' || courier !== 'All' || city !== 'All' || search) && (
+            {(dateFrom || dateTo || status !== 'All' || courier !== 'All' || city !== 'All' || search || sortBy !== 'order_no_asc') && (
               <button
                 type="button"
                 onClick={() => {
@@ -623,6 +689,7 @@ export default function OrdersPage() {
                   setCity('All');
                   setDateFrom('');
                   setDateTo('');
+                  setSortBy('order_no_asc');
                   setPage(1);
                 }}
                 className="text-red-500 hover:text-red-700 font-semibold text-xs ml-2 cursor-pointer"
@@ -650,7 +717,28 @@ export default function OrdersPage() {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-[#FBF6EF] dark:bg-[#140A0D] border-b border-[#EFE4D3] dark:border-[#3A1B23] text-gray-700 dark:text-gray-300 uppercase tracking-wider text-[11px] font-bold">
-                  <th className="py-3.5 px-4">{t.orderFields.orderNo}</th>
+                  <th className="py-3.5 px-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSortBy((prev) =>
+                          prev === 'order_no_asc' ? 'order_no_desc' : 'order_no_asc'
+                        );
+                        setPage(1);
+                      }}
+                      className="inline-flex items-center gap-1 uppercase tracking-wider font-bold text-[#7A1626] dark:text-[#E5B84B] hover:underline cursor-pointer"
+                      title="Click to sort by Order Number"
+                    >
+                      <span>{t.orderFields.orderNo}</span>
+                      {sortBy === 'order_no_asc' ? (
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      ) : sortBy === 'order_no_desc' ? (
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      ) : (
+                        <ArrowUpDown className="w-3.5 h-3.5 opacity-60" />
+                      )}
+                    </button>
+                  </th>
                   <th className="py-3.5 px-4">{t.orderFields.customerName}</th>
                   <th className="py-3.5 px-4">{t.orderFields.city}</th>
                   <th className="py-3.5 px-4">{t.orderFields.product}</th>
