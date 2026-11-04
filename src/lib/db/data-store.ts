@@ -351,11 +351,17 @@ function matchesPhoneQuery(orderPhone: string, query: string): boolean {
 }
 
 function normalizeTrackingToken(value?: string | null): string {
-  return (value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  const compact = (value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  const prefixMatch = compact.match(/^([A-Z01]{3})(\d{5,12})$/);
+  if (prefixMatch && /[A-Z]/.test(prefixMatch[1])) {
+    const fixedPrefix = prefixMatch[1].replace(/0/g, 'O').replace(/1/g, 'I');
+    return `${fixedPrefix}${prefixMatch[2]}`;
+  }
+  return compact;
 }
 
 function stripCarrierPrefix(token: string): string {
-  return token.replace(/^(PRO|TPC|ST|DTDC|AWB|CJB|MAA|BLR|HYD|COK|TRZ|IXM|SLM|ERD|TUP|POY|PLNI|CBE|MDU)+/i, '');
+  return token.replace(/^(PRO|TPC|POL|P0L|ST|DTDC|AWB|CJB|MAA|BLR|HYD|COK|TRZ|IXM|SLM|ERD|TUP|POY|PLNI|CBE|MDU)+/i, '');
 }
 
 function matchesAwbQuery(orderAwb: string | null | undefined, query: string): boolean {
@@ -427,7 +433,7 @@ export async function listOrders(filters?: {
       amount: Number(o.amount) || 0,
       status: (o.status === 'Pending' && o.awbNo && o.awbNo.trim() ? 'Dispatched' : o.status) as OrderStatus,
       courier: o.courier || (o.awbNo && o.awbNo.trim() ? 'Professional' : null),
-      awb_no: o.awbNo ? o.awbNo.trim().toUpperCase() : null,
+      awb_no: o.awbNo && o.awbNo.trim() ? normalizeTrackingToken(o.awbNo) : null,
       weight_kg: o.weightKg ? Number(o.weightKg) : null,
       boxes: o.boxes,
       courier_charge: o.courierCharge ? Number(o.courierCharge) : null,

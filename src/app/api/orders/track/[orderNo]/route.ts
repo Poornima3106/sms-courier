@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrderByOrderNo } from '@/lib/db/data-store';
 import { isProfessionalCourier, getCleanCarrierAwb } from '@/lib/utils/format';
+import { fetchLiveCourierTracking } from '@/lib/services/courier-api';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ orderNo: string }> }) {
   const { orderNo } = await params;
@@ -28,21 +29,32 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ orde
         ? 'DTDC'
         : 'Professional';
       const today = new Date().toISOString().slice(0, 10);
+
+      const liveTracking = await fetchLiveCourierTracking(detectedCourier, cleanToken);
+      const effectiveAwb = liveTracking.awbNo || cleanToken;
+      const effectiveStatus = liveTracking.liveFetched
+        ? liveTracking.currentStatus === 'Delivered'
+          ? 'Delivered'
+          : liveTracking.currentStatus === 'In Transit'
+          ? 'In Transit'
+          : 'Dispatched'
+        : 'Dispatched';
+
       const directOrder = {
-        id: `track-${cleanToken}`,
-        order_no: cleanToken,
+        id: `track-${effectiveAwb}`,
+        order_no: effectiveAwb,
         customer_name: 'Direct Consignment Lookup',
         phone: '',
         address: '',
-        city: 'Check Live Carrier Scan',
+        city: liveTracking.liveFetched && liveTracking.location ? liveTracking.location : 'Check Live Carrier Scan',
         pincode: '—',
         product: 'Courier Consignment',
         order_date: today,
         payment_status: 'Paid',
         amount: 0,
-        status: 'Dispatched',
+        status: effectiveStatus,
         courier: detectedCourier,
-        awb_no: cleanToken,
+        awb_no: effectiveAwb,
         weight_kg: null,
         boxes: 1,
         courier_charge: null,
@@ -53,41 +65,70 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ orde
         is_direct_awb: true,
       };
 
+      const isDirectInTransit = effectiveStatus === 'In Transit' || effectiveStatus === 'Delivered';
+      const isDirectDelivered = effectiveStatus === 'Delivered';
+
       const directTimeline = [
         {
           title: 'Consignment Registered',
-          description: `Tracking ID ${cleanToken} recognized for ${detectedCourier}`,
+          description: `Tracking ID ${effectiveAwb} recognized for ${detectedCourier}`,
           date: today,
           completed: true,
           current: false,
         },
         {
           title: 'Dispatched via ' + detectedCourier,
-          description: `Consignment AWB: ${cleanToken} — Click "Track on TPC India" above for live hub scans`,
+          description: `Consignment AWB: ${effectiveAwb}`,
           date: today,
           completed: true,
-          current: true,
+          current: effectiveStatus === 'Dispatched',
         },
         {
           title: 'In Transit',
-          description: 'Live movement & hub scans available on official carrier portal',
-          date: null,
-          completed: false,
-          current: false,
+          description: liveTracking.liveFetched
+            ? `${liveTracking.latestActivity} — ${liveTracking.location}`
+            : 'Live movement & hub scans available in Live Tracking Report',
+          date: liveTracking.liveFetched ? liveTracking.lastUpdated : null,
+          completed: isDirectInTransit,
+          current: effectiveStatus === 'In Transit',
         },
         {
           title: 'Delivered',
-          description: 'Final delivery confirmation updated on carrier portal',
-          date: null,
-          completed: false,
-          current: false,
+          description: isDirectDelivered
+            ? `${liveTracking.latestActivity} (${liveTracking.location})`
+            : 'Final delivery confirmation updated on carrier portal',
+          date: isDirectDelivered ? liveTracking.lastUpdated : null,
+          completed: isDirectDelivered,
+          current: isDirectDelivered,
         },
       ];
 
-      return NextResponse.json({ order: directOrder, timeline: directTimeline, isDirectAwb: true });
+      return NextResponse.json({
+        order: directOrder,
+        timeline: directTimeline,
+        liveTracking,
+        isDirectAwb: true,
+      });
     }
 
     return NextResponse.json({ error: `Order or Tracking ID "${rawInput}" not found` }, { status: 404 });
+  }
+
+  // Normalize AWB & fetch live carrier updates if AWB exists
+  let liveTracking = null;
+  if (order.awb_no) {
+    order.awb_no = getCleanCarrierAwb(order.courier, order.awb_no);
+    liveTracking = await fetchLiveCourierTracking(order.courier || 'Professional', order.awb_no);
+    if (liveTracking?.awbNo) {
+      order.awb_no = liveTracking.awbNo;
+    }
+    if (liveTracking?.liveFetched) {
+      if (liveTracking.currentStatus === 'Delivered') {
+        order.status = 'Delivered';
+      } else if (liveTracking.currentStatus === 'In Transit' && (order.status === 'Pending' || order.status === 'Dispatched')) {
+        order.status = 'In Transit';
+      }
+    }
   }
 
   // Build timeline
@@ -116,7 +157,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ orde
     },
     {
       title: 'In Transit',
-      description: isInTransit
+      description: liveTracking?.liveFetched
+        ? `${liveTracking.latestActivity} • ${liveTracking.location}`
+        : isInTransit
         ? `Package in transit to ${order.city}`
         : 'Will depart dispatch hub once scanned',
       date: order.dispatch_date || null,
@@ -126,7 +169,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ orde
     {
       title: isProblem ? `Notice: ${order.status}` : 'Delivered',
       description: isDelivered
-        ? `Successfully delivered to ${order.customer_name}`
+        ? liveTracking?.liveFetched
+          ? `${liveTracking.latestActivity} (${liveTracking.location}) — Delivered to ${order.customer_name}`
+          : `Successfully delivered to ${order.customer_name}`
         : isProblem
         ? `Status flag: ${order.status}. Contact shop staff for assistance.`
         : 'Out for delivery to destination address',
@@ -137,5 +182,5 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ orde
     },
   ];
 
-  return NextResponse.json({ order, timeline });
+  return NextResponse.json({ order, timeline, liveTracking });
 }

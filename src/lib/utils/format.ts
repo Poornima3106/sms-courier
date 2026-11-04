@@ -70,8 +70,8 @@ export function isProfessionalCourier(courierName?: string | null, awbNo?: strin
   if (c.includes('professional') || c.includes('tpc') || c.includes('pro courier')) {
     return true;
   }
-  const cleanAwb = (awbNo || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-  if (/^(PRO|TPC|CJB|MAA|BLR|HYD|COK|TRZ|IXM|SLM|ERD|TUP|POY|PLNI|CBE|MDU|TEN|TVL|VLR|Kanchi)\d{4,}/i.test(cleanAwb)) {
+  const cleanAwb = getCleanCarrierAwb(courierName, awbNo);
+  if (/^(PRO|TPC|POL|CJB|MAA|BLR|HYD|COK|TRZ|IXM|SLM|ERD|TUP|POY|PLNI|CBE|MDU|TEN|TVL|VLR|KANCHI)\d{4,}/i.test(cleanAwb)) {
     return true;
   }
   return false;
@@ -85,29 +85,52 @@ export function getCleanCarrierAwb(courierName?: string | null, awbNo?: string |
   const raw = (awbNo || '').trim().toUpperCase();
   if (!raw) return '';
   // Strip internal spaces/hyphens/slashes so carrier portals recognize the consignment number cleanly
-  return raw.replace(/[\s\-/]+/g, '');
+  const compact = raw.replace(/[\s\-/]+/g, '');
+
+  // Fix common station code typo where digit '0' is typed instead of letter 'O' in 3-letter prefix (e.g. P0L1440426 -> POL1440426)
+  const prefixMatch = compact.match(/^([A-Z01]{3})(\d{5,12})$/);
+  if (prefixMatch && /[A-Z]/.test(prefixMatch[1])) {
+    const fixedPrefix = prefixMatch[1].replace(/0/g, 'O').replace(/1/g, 'I');
+    return `${fixedPrefix}${prefixMatch[2]}`;
+  }
+
+  return compact;
+}
+
+export function getTrackCourierSlug(courierName?: string | null, awbNo?: string | null): string {
+  const c = (courierName || '').toLowerCase().trim();
+  if (isProfessionalCourier(courierName, awbNo)) {
+    return 'professional-courier';
+  }
+  if (c.includes('st') || c.includes('st courier')) {
+    return 'st-courier';
+  }
+  if (c.includes('dtdc')) {
+    return 'dtdc';
+  }
+  if (c.includes('speed') || c.includes('post') || c.includes('india post')) {
+    return 'speed-post';
+  }
+  if (c.includes('blue') || c.includes('dart')) {
+    return 'blue-dart-courier';
+  }
+  if (c.includes('delhivery')) {
+    return 'delhivery-courier';
+  }
+  if (c.includes('trackon')) {
+    return 'trackon-courier';
+  }
+  return 'professional-courier';
 }
 
 export function getLiveTrackingReportUrl(courierName?: string | null, awbNo?: string | null): string {
   if (!awbNo) return '#';
-  const c = (courierName || '').toLowerCase().trim();
   const cleanAwb = getCleanCarrierAwb(courierName, awbNo);
   const awb = encodeURIComponent(cleanAwb);
+  const slug = getTrackCourierSlug(courierName, awbNo);
 
-  if (isProfessionalCourier(courierName, awbNo)) {
-    return `https://www.tpcindia.com/Default.aspx`;
-  }
-  if (c.includes('blue') || c.includes('dart')) {
-    return `https://www.bluedart.com/tracking?handler=trak&numbers=${awb}`;
-  }
-  if (c.includes('delhivery')) {
-    return `https://www.delhivery.com/track/package/${awb}`;
-  }
-  if (c.includes('trackon')) {
-    return `https://trackon.in/TrackOrder.aspx?awb=${awb}`;
-  }
-
-  return `https://parcelsapp.com/en/tracking/${awb}`;
+  // Directly opens the automatic live parcel checkpoints & map page for Professional Courier (e.g. POL1440426), ST Courier, DTDC, etc.
+  return `https://trackcourier.io/track-and-trace/${slug}/${awb}`;
 }
 
 export function getOfficialPortalUrl(courierName?: string | null, awbNo?: string | null): string {

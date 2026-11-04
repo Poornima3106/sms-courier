@@ -28,6 +28,8 @@ import {
   Copy,
   Check,
   Globe,
+  RefreshCw,
+  Navigation,
 } from 'lucide-react';
 
 function TrackOrderContent() {
@@ -88,6 +90,9 @@ function TrackOrderContent() {
 
   const order = result?.order;
   const timeline = result?.timeline || [];
+  const liveTracking = result?.liveTracking;
+  const liveCheckpoints: any[] = liveTracking?.checkpoints || [];
+  const cleanAwb = order?.awb_no ? getCleanCarrierAwb(order.courier, order.awb_no) : '';
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -128,7 +133,7 @@ function TrackOrderContent() {
         {/* Quick Sample Links */}
         <div className="flex flex-wrap items-center justify-center gap-2 mt-4 text-[11px] text-gray-400">
           <span>Try sample Order / AWB:</span>
-          {['1001', '134', 'PRO882910', 'ST8892110', 'PRO672314'].map((sample) => (
+          {['216', 'POL1440426', '1001', '134', 'PRO882910', 'ST8892110'].map((sample) => (
             <button
               key={sample}
               type="button"
@@ -177,14 +182,10 @@ function TrackOrderContent() {
                       rel="noopener noreferrer"
                       onClick={() => copyTrackingIdToClipboard(order.courier, order.awb_no)}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-all"
-                      title="Copies Track ID & opens tracking portal"
+                      title="Opens Live Carrier Report with latest parcel scans"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
-                      <span>
-                        {isProfessionalCourier(order.courier, order.awb_no)
-                          ? 'Track on TPC India'
-                          : `Live ${order.courier} Report`}
-                      </span>
+                      <span>Live {order.courier || 'Professional'} Report</span>
                     </a>
                     <a
                       href={getOfficialPortalUrl(order.courier, order.awb_no)}
@@ -238,14 +239,17 @@ function TrackOrderContent() {
                 <span className="font-bold text-gray-800 dark:text-gray-200 mt-0.5 block">
                   {order.courier || 'Pending'}
                 </span>
-                <span className="text-gray-500 font-mono text-[11px]">{order.awb_no || 'No AWB yet'}</span>
+                <span className="text-gray-500 font-mono text-[11px]">{cleanAwb || order.awb_no || 'No AWB yet'}</span>
               </div>
             </div>
           </div>
 
           {/* Live Courier Report Card */}
           {order.awb_no && (
-            <div className="bg-white dark:bg-[#1E0D12] p-5 sm:p-6 rounded-3xl shadow-sm border-2 border-emerald-500/20 bg-gradient-to-br from-emerald-50/40 via-white to-amber-50/30 dark:from-[#180A0E] dark:to-[#1E0D12] space-y-4">
+            <div
+              id="live-carrier-report"
+              className="bg-white dark:bg-[#1E0D12] p-5 sm:p-6 rounded-3xl shadow-sm border-2 border-emerald-500/20 bg-gradient-to-br from-emerald-50/40 via-white to-amber-50/30 dark:from-[#180A0E] dark:to-[#1E0D12] space-y-4"
+            >
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shrink-0">
@@ -260,38 +264,128 @@ function TrackOrderContent() {
                         {order.courier}
                       </h4>
                       <span className="font-mono px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-xs font-bold text-[#7A1626] dark:text-[#E5B84B]">
-                        {order.awb_no}
+                        {cleanAwb}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Copy AWB button */}
-                <button
-                  type="button"
-                  onClick={() => copyTrackingIdToClipboard(order.courier, order.awb_no)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#140A0D] text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 transition-colors shadow-xs cursor-pointer self-start sm:self-auto"
-                >
-                  {copiedAwb ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span className="text-emerald-600 font-bold">Copied to Clipboard!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copy Tracking ID</span>
-                    </>
-                  )}
-                </button>
+                {/* Copy & Refresh buttons */}
+                <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => fetchTracking(order.order_no || cleanAwb)}
+                    disabled={loading}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/80 dark:bg-emerald-950/40 text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 transition-colors shadow-xs cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                    <span>Refresh Live Updates</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => copyTrackingIdToClipboard(order.courier, order.awb_no)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#140A0D] text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 transition-colors shadow-xs cursor-pointer"
+                  >
+                    {copiedAwb ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-emerald-600 font-bold">Copied to Clipboard!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Tracking ID</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {copiedAwb && (
                 <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
                   <span>
-                    Track ID <strong>{getCleanCarrierAwb(order.courier, order.awb_no)}</strong> copied! Paste (<strong>Ctrl+V</strong>) into the Consignment Number box on TPC India and click <strong>SEARCH</strong>.
+                    Track ID <strong>{cleanAwb}</strong> copied to clipboard!
                   </span>
+                </div>
+              )}
+
+              {/* Automatic Live Parcel Status & Checkpoints List */}
+              {liveCheckpoints.length > 0 && (
+                <div className="rounded-2xl border border-emerald-200/80 dark:border-emerald-900/60 bg-white/95 dark:bg-[#140A0D] overflow-hidden shadow-xs">
+                  {/* Latest Parcel Update Banner */}
+                  <div className="p-4 bg-emerald-600 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div className="flex items-start sm:items-center gap-2.5">
+                      <span className="relative flex h-3 w-3 shrink-0 mt-1 sm:mt-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-200 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+                      </span>
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-100 block">
+                          Latest Live Parcel Update ({order.courier})
+                        </span>
+                        <p className="text-sm sm:text-base font-bold leading-snug">
+                          {liveCheckpoints[0].activity}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-left sm:text-right text-xs text-emerald-100 font-mono shrink-0">
+                      <div className="font-bold text-white flex items-center sm:justify-end gap-1">
+                        <MapPin className="w-3.5 h-3.5 inline shrink-0" />
+                        <span>{liveCheckpoints[0].location || order.city}</span>
+                      </div>
+                      <div>
+                        {liveCheckpoints[0].date} {liveCheckpoints[0].time}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Full Live Carrier Scan History Table */}
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                        <Navigation className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Live Carrier Checkpoints & Hub Scans ({liveCheckpoints.length})</span>
+                      </span>
+                      <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                        AWB: {cleanAwb}
+                      </span>
+                    </div>
+
+                    <div className="divide-y divide-gray-100 dark:divide-gray-800/80">
+                      {liveCheckpoints.map((cp: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className={`py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs ${
+                            idx === 0
+                              ? 'font-bold text-emerald-950 dark:text-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 -mx-2 px-2 rounded-xl'
+                              : 'text-gray-700 dark:text-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-start gap-2.5">
+                            <span
+                              className={`mt-1 w-2 h-2 rounded-full shrink-0 ${
+                                idx === 0 ? 'bg-emerald-600 ring-4 ring-emerald-500/20' : 'bg-gray-300 dark:bg-gray-600'
+                              }`}
+                            />
+                            <div>
+                              <span className="block">{cp.activity}</span>
+                              {cp.location && (
+                                <span className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-0.5">
+                                  <MapPin className="w-3 h-3 text-gray-400" />
+                                  {cp.location}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="pl-4 sm:pl-0 text-[11px] font-mono text-gray-500 dark:text-gray-400 shrink-0">
+                            {cp.date} {cp.time && `• ${cp.time}`}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -309,14 +403,10 @@ function TrackOrderContent() {
                     <Sparkles className="w-4 h-4 text-emerald-200" />
                     <div className="text-left">
                       <span className="text-xs block font-bold leading-tight">
-                        {isProfessionalCourier(order.courier, order.awb_no)
-                          ? 'Track on The Professional Couriers (TPC India)'
-                          : 'View Live Tracking Report'}
+                        View Live Tracking Report
                       </span>
                       <span className="text-[10px] text-emerald-100 block">
-                        {isProfessionalCourier(order.courier, order.awb_no)
-                          ? `Auto-copies ${getCleanCarrierAwb(order.courier, order.awb_no)} & opens tpcindia.com/Default.aspx`
-                          : `Auto-queries ${order.courier} live status & scans`}
+                        Auto-queries {order.courier} live status & scans ({cleanAwb})
                       </span>
                     </div>
                   </div>
@@ -338,7 +428,7 @@ function TrackOrderContent() {
                         Official {order.courier} Portal
                       </span>
                       <span className="text-[10px] text-gray-400 block">
-                        Opens tpcindia.com/Default.aspx (copies AWB on click)
+                        Opens main carrier portal (copies {cleanAwb} on click)
                       </span>
                     </div>
                   </div>
