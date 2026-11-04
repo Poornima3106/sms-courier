@@ -65,28 +65,58 @@ export function getWhatsAppUrl(customerName: string, orderNo: string, courierNam
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
 }
 
+export function isProfessionalCourier(courierName?: string | null, awbNo?: string | null): boolean {
+  const c = (courierName || '').toLowerCase().trim();
+  if (c.includes('professional') || c.includes('tpc') || c.includes('pro courier')) {
+    return true;
+  }
+  const cleanAwb = (awbNo || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  if (/^(PRO|TPC|CJB|MAA|BLR|HYD|COK|TRZ|IXM|SLM|ERD|TUP|POY|PLNI|CBE|MDU|TEN|TVL|VLR|Kanchi)\d{4,}/i.test(cleanAwb)) {
+    return true;
+  }
+  return false;
+}
+
+export function normalizeTrackingId(value?: string | null): string {
+  return (value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+}
+
+export function getCleanCarrierAwb(courierName?: string | null, awbNo?: string | null): string {
+  const raw = (awbNo || '').trim().toUpperCase();
+  if (!raw) return '';
+  // Strip internal spaces/hyphens/slashes so carrier portals recognize the consignment number cleanly
+  return raw.replace(/[\s\-/]+/g, '');
+}
+
 export function getLiveTrackingReportUrl(courierName?: string | null, awbNo?: string | null): string {
   if (!awbNo) return '#';
   const c = (courierName || '').toLowerCase().trim();
-  const awb = encodeURIComponent(awbNo.trim());
+  const cleanAwb = getCleanCarrierAwb(courierName, awbNo);
+  const awb = encodeURIComponent(cleanAwb);
 
+  if (isProfessionalCourier(courierName, awbNo)) {
+    return `https://www.tpcindia.com/Default.aspx`;
+  }
   if (c.includes('blue') || c.includes('dart')) {
     return `https://www.bluedart.com/tracking?handler=trak&numbers=${awb}`;
   }
   if (c.includes('delhivery')) {
     return `https://www.delhivery.com/track/package/${awb}`;
   }
+  if (c.includes('trackon')) {
+    return `https://trackon.in/TrackOrder.aspx?awb=${awb}`;
+  }
 
-  // Universal tracker directly renders the live tracking milestones for Professional Courier, ST Courier, DTDC, India Post, etc.
   return `https://parcelsapp.com/en/tracking/${awb}`;
 }
 
 export function getOfficialPortalUrl(courierName?: string | null, awbNo?: string | null): string {
   const c = (courierName || '').toLowerCase().trim();
-  const awb = awbNo ? encodeURIComponent(awbNo.trim()) : '';
+  const cleanAwb = getCleanCarrierAwb(courierName, awbNo);
+  const awb = cleanAwb ? encodeURIComponent(cleanAwb) : '';
 
-  if (c.includes('professional') || c.includes('tpc')) {
-    return `https://www.tpcindia.com/Track-info.aspx`;
+  if (isProfessionalCourier(courierName, awbNo)) {
+    return `https://www.tpcindia.com/Default.aspx`;
   }
   if (c.includes('st') || c.includes('st courier')) {
     return `https://stcourier.com/`;
@@ -107,7 +137,7 @@ export function getOfficialPortalUrl(courierName?: string | null, awbNo?: string
     return `https://trackon.in/TrackOrder.aspx?awb=${awb}`;
   }
 
-  return `https://www.google.com/search?q=${encodeURIComponent(`${courierName || 'courier'} tracking ${awbNo || ''}`)}`;
+  return `https://www.google.com/search?q=${encodeURIComponent(`${courierName || 'courier'} tracking ${cleanAwb || ''}`)}`;
 }
 
 export function getTrackingUrl(courierName?: string | null, awbNo?: string | null): string {

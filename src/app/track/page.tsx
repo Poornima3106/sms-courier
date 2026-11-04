@@ -3,7 +3,15 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
-import { formatDate, formatCurrency, getTrackingUrl, getWhatsAppUrl, getLiveTrackingReportUrl, getOfficialPortalUrl } from '@/lib/utils/format';
+import {
+  formatDate,
+  formatCurrency,
+  getWhatsAppUrl,
+  getLiveTrackingReportUrl,
+  getOfficialPortalUrl,
+  getCleanCarrierAwb,
+  isProfessionalCourier,
+} from '@/lib/utils/format';
 import StatusBadge from '@/components/StatusBadge';
 import {
   Search,
@@ -34,12 +42,14 @@ function TrackOrderContent() {
   const [copiedAwb, setCopiedAwb] = useState(false);
 
   const fetchTracking = async (no: string) => {
-    if (!no.trim()) return;
+    const raw = no.trim();
+    if (!raw) return;
     setLoading(true);
     setError(null);
 
     try {
-      const res = await fetch(`/api/orders/track/${encodeURIComponent(no.trim().toUpperCase())}`);
+      const safeSegment = encodeURIComponent(raw.toUpperCase().replace(/[\/\\]/g, '-') || 'TRACK');
+      const res = await fetch(`/api/orders/track/${safeSegment}?query=${encodeURIComponent(raw)}`);
       const data = await res.json();
 
       if (!res.ok) {
@@ -52,6 +62,16 @@ function TrackOrderContent() {
       setError('Failed to fetch tracking details. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const copyTrackingIdToClipboard = (courierName?: string | null, awbNo?: string | null) => {
+    if (!awbNo) return;
+    const clean = getCleanCarrierAwb(courierName, awbNo);
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(clean).catch(() => {});
+      setCopiedAwb(true);
+      setTimeout(() => setCopiedAwb(false), 4000);
     }
   };
 
@@ -155,18 +175,24 @@ function TrackOrderContent() {
                       href={getLiveTrackingReportUrl(order.courier, order.awb_no)}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => copyTrackingIdToClipboard(order.courier, order.awb_no)}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-all"
-                      title="View live tracking report"
+                      title="Copies Track ID & opens tracking portal"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Live {order.courier} Report</span>
+                      <span>
+                        {isProfessionalCourier(order.courier, order.awb_no)
+                          ? 'Track on TPC India'
+                          : `Live ${order.courier} Report`}
+                      </span>
                     </a>
                     <a
                       href={getOfficialPortalUrl(order.courier, order.awb_no)}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => copyTrackingIdToClipboard(order.courier, order.awb_no)}
                       className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-xs font-semibold hover:bg-blue-100 transition-colors"
-                      title={`Open official ${order.courier} site`}
+                      title={`Open official ${order.courier} site (copies Track ID)`}
                     >
                       <Globe className="w-3.5 h-3.5" />
                       <span>Official Site</span>
@@ -243,11 +269,7 @@ function TrackOrderContent() {
                 {/* Copy AWB button */}
                 <button
                   type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(order.awb_no);
-                    setCopiedAwb(true);
-                    setTimeout(() => setCopiedAwb(false), 2500);
-                  }}
+                  onClick={() => copyTrackingIdToClipboard(order.courier, order.awb_no)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#140A0D] text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 transition-colors shadow-xs cursor-pointer self-start sm:self-auto"
                 >
                   {copiedAwb ? (
@@ -264,6 +286,15 @@ function TrackOrderContent() {
                 </button>
               </div>
 
+              {copiedAwb && (
+                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                  <span>
+                    Track ID <strong>{getCleanCarrierAwb(order.courier, order.awb_no)}</strong> copied! Paste (<strong>Ctrl+V</strong>) into the Consignment Number box on TPC India and click <strong>SEARCH</strong>.
+                  </span>
+                </div>
+              )}
+
               {/* Live Action Buttons */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 {/* Action 1: Direct Live Report */}
@@ -271,16 +302,21 @@ function TrackOrderContent() {
                   href={getLiveTrackingReportUrl(order.courier, order.awb_no)}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => copyTrackingIdToClipboard(order.courier, order.awb_no)}
                   className="flex items-center justify-between p-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md transition-all group"
                 >
                   <div className="flex items-center gap-2.5">
                     <Sparkles className="w-4 h-4 text-emerald-200" />
                     <div className="text-left">
                       <span className="text-xs block font-bold leading-tight">
-                        View Live Tracking Report
+                        {isProfessionalCourier(order.courier, order.awb_no)
+                          ? 'Track on The Professional Couriers (TPC India)'
+                          : 'View Live Tracking Report'}
                       </span>
                       <span className="text-[10px] text-emerald-100 block">
-                        Auto-queries {order.courier} live status & scans
+                        {isProfessionalCourier(order.courier, order.awb_no)
+                          ? `Auto-copies ${getCleanCarrierAwb(order.courier, order.awb_no)} & opens tpcindia.com/Default.aspx`
+                          : `Auto-queries ${order.courier} live status & scans`}
                       </span>
                     </div>
                   </div>
@@ -292,13 +328,7 @@ function TrackOrderContent() {
                   href={getOfficialPortalUrl(order.courier, order.awb_no)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={() => {
-                    if (navigator.clipboard) {
-                      navigator.clipboard.writeText(order.awb_no);
-                      setCopiedAwb(true);
-                      setTimeout(() => setCopiedAwb(false), 2500);
-                    }
-                  }}
+                  onClick={() => copyTrackingIdToClipboard(order.courier, order.awb_no)}
                   className="flex items-center justify-between p-3.5 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#140A0D] text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-900 font-semibold shadow-xs transition-all group"
                 >
                   <div className="flex items-center gap-2.5">
@@ -308,7 +338,7 @@ function TrackOrderContent() {
                         Official {order.courier} Portal
                       </span>
                       <span className="text-[10px] text-gray-400 block">
-                        Opens main carrier portal (copies AWB on click)
+                        Opens tpcindia.com/Default.aspx (copies AWB on click)
                       </span>
                     </div>
                   </div>

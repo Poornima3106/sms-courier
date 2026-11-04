@@ -350,6 +350,35 @@ function matchesPhoneQuery(orderPhone: string, query: string): boolean {
   return orderWith91.includes(queryDigits);
 }
 
+function normalizeTrackingToken(value?: string | null): string {
+  return (value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+}
+
+function stripCarrierPrefix(token: string): string {
+  return token.replace(/^(PRO|TPC|ST|DTDC|AWB|CJB|MAA|BLR|HYD|COK|TRZ|IXM|SLM|ERD|TUP|POY|PLNI|CBE|MDU)+/i, '');
+}
+
+function matchesAwbQuery(orderAwb: string | null | undefined, query: string): boolean {
+  if (!orderAwb) return false;
+  const rawAwb = orderAwb.toLowerCase().trim();
+  const rawQuery = query.toLowerCase().trim();
+  if (!rawQuery) return false;
+  if (rawAwb.includes(rawQuery)) return true;
+
+  const normAwb = normalizeTrackingToken(orderAwb);
+  const normQuery = normalizeTrackingToken(query);
+  if (!normAwb || !normQuery) return false;
+  if (normAwb.includes(normQuery) || normQuery.includes(normAwb)) return true;
+
+  const coreAwb = stripCarrierPrefix(normAwb);
+  const coreQuery = stripCarrierPrefix(normQuery);
+  if (coreAwb.length >= 4 && coreQuery.length >= 4) {
+    if (coreAwb.includes(coreQuery) || coreQuery.includes(coreAwb)) return true;
+  }
+
+  return false;
+}
+
 export async function listOrders(filters?: {
   search?: string;
   phone?: string;
@@ -396,9 +425,9 @@ export async function listOrders(filters?: {
       order_date: o.orderDate,
       payment_status: o.paymentStatus as PaymentStatus,
       amount: Number(o.amount) || 0,
-      status: o.status as OrderStatus,
-      courier: o.courier,
-      awb_no: o.awbNo,
+      status: (o.status === 'Pending' && o.awbNo && o.awbNo.trim() ? 'Dispatched' : o.status) as OrderStatus,
+      courier: o.courier || (o.awbNo && o.awbNo.trim() ? 'Professional' : null),
+      awb_no: o.awbNo ? o.awbNo.trim().toUpperCase() : null,
       weight_kg: o.weightKg ? Number(o.weightKg) : null,
       boxes: o.boxes,
       courier_charge: o.courierCharge ? Number(o.courierCharge) : null,
@@ -417,15 +446,12 @@ export async function listOrders(filters?: {
 
     if (filters?.search) {
       const q = filters.search.toLowerCase().trim();
-      const qDigits = q.replace(/\D/g, '');
-      const looksLikePhoneOnly = q.startsWith('+') || qDigits.length >= 7;
-      items = items.filter((o) =>
-        looksLikePhoneOnly
-          ? matchesPhoneQuery(o.phone, q)
-          : o.order_no.toLowerCase().includes(q) ||
-            o.customer_name.toLowerCase().includes(q) ||
-            matchesPhoneQuery(o.phone, q) ||
-            (o.awb_no && o.awb_no.toLowerCase().includes(q))
+      items = items.filter(
+        (o) =>
+          o.order_no.toLowerCase().includes(q) ||
+          o.customer_name.toLowerCase().includes(q) ||
+          matchesPhoneQuery(o.phone, q) ||
+          matchesAwbQuery(o.awb_no, q)
       );
     }
     return items.sort((a, b) => {
@@ -463,15 +489,12 @@ export async function listOrders(filters?: {
   }
   if (filters?.search) {
     const q = filters.search.toLowerCase().trim();
-    const qDigits = q.replace(/\D/g, '');
-    const looksLikePhoneOnly = q.startsWith('+') || qDigits.length >= 7;
-    items = items.filter((o) =>
-      looksLikePhoneOnly
-        ? matchesPhoneQuery(o.phone, q)
-        : o.order_no.toLowerCase().includes(q) ||
-          o.customer_name.toLowerCase().includes(q) ||
-          matchesPhoneQuery(o.phone, q) ||
-          (o.awb_no && o.awb_no.toLowerCase().includes(q))
+    items = items.filter(
+      (o) =>
+        o.order_no.toLowerCase().includes(q) ||
+        o.customer_name.toLowerCase().includes(q) ||
+        matchesPhoneQuery(o.phone, q) ||
+        matchesAwbQuery(o.awb_no, q)
     );
   }
 
@@ -484,49 +507,65 @@ export async function listOrders(filters?: {
   });
 }
 
+function findMatchingOrderByOrderNoOrAwb(orders: Order[], rawInput: string): Order | null {
+  const clean = rawInput.trim().toUpperCase();
+  if (!clean) return null;
+
+  // 1. Exact case-insensitive match on order_no or awb_no
+  const exact = orders.find(
+    (o) =>
+      o.order_no.trim().toUpperCase() === clean ||
+      (o.awb_no && o.awb_no.trim().toUpperCase() === clean)
+  );
+  if (exact) return exact;
+
+  // 2. Alphanumeric normalized match (strips spaces, hyphens, slashes, etc.)
+  const normQuery = normalizeTrackingToken(clean);
+  if (!normQuery) return null;
+
+  const normalizedMatch = orders.find(
+    (o) =>
+      normalizeTrackingToken(o.order_no) === normQuery ||
+      (o.awb_no && normalizeTrackingToken(o.awb_no) === normQuery)
+  );
+  if (normalizedMatch) return normalizedMatch;
+
+  // 3. Prefix-tolerant / numeric core match for Professional Courier & other AWBs
+  const coreQuery = stripCarrierPrefix(normQuery);
+  const digitsQuery = normQuery.replace(/\D/g, '');
+
+  const flexibleAwbMatch = orders.find((o) => {
+    if (!o.awb_no) return false;
+    const normAwb = normalizeTrackingToken(o.awb_no);
+    if (!normAwb) return false;
+
+    const coreAwb = stripCarrierPrefix(normAwb);
+    if (coreQuery.length >= 4 && coreAwb.length >= 4 && coreAwb === coreQuery) {
+      return true;
+    }
+
+    const digitsAwb = normAwb.replace(/\D/g, '');
+    if (digitsQuery.length >= 5 && digitsAwb.length >= 5 && digitsAwb === digitsQuery) {
+      return true;
+    }
+
+    return normAwb.endsWith(normQuery) && normQuery.length >= 5;
+  });
+
+  return flexibleAwbMatch || null;
+}
+
 export async function getOrderByOrderNo(orderNo: string): Promise<Order | null> {
   const clean = orderNo.toUpperCase().trim();
-  const db = getDb();
-  if (db) {
-    const res = await db
-      .select()
-      .from(schema.orders)
-      .where(or(eq(schema.orders.orderNo, clean), eq(schema.orders.awbNo, clean)))
-      .limit(1);
-    if (res.length === 0) return null;
-    const o = res[0];
-    return {
-      id: o.id,
-      order_no: o.orderNo,
-      customer_name: o.customerName,
-      phone: o.phone,
-      address: o.address,
-      city: o.city,
-      pincode: o.pincode,
-      product: o.product,
-      order_date: o.orderDate,
-      payment_status: o.paymentStatus as PaymentStatus,
-      amount: Number(o.amount) || 0,
-      status: o.status as OrderStatus,
-      courier: o.courier,
-      awb_no: o.awbNo,
-      weight_kg: o.weightKg ? Number(o.weightKg) : null,
-      boxes: o.boxes,
-      courier_charge: o.courierCharge ? Number(o.courierCharge) : null,
-      dispatch_date: o.dispatchDate,
-      created_by: o.createdBy,
-      created_at: o.createdAt.toISOString(),
-      updated_at: o.updatedAt.toISOString(),
-    };
-  }
+  if (!clean) return null;
+
+  const allOrders = await listOrders();
+  const matched = findMatchingOrderByOrderNoOrAwb(allOrders, clean);
+  if (matched) return matched;
+
+  // Fallback to local seed orders if running with DB and testing sample AWB numbers
   const store = readLocalStore();
-  return (
-    store.orders.find(
-      (o) =>
-        o.order_no.toUpperCase() === clean ||
-        (o.awb_no && o.awb_no.toUpperCase() === clean)
-    ) || null
-  );
+  return findMatchingOrderByOrderNoOrAwb(store.orders, clean);
 }
 
 export async function getNextOrderNumber(): Promise<string> {
@@ -572,8 +611,8 @@ export async function createOrder(data: Omit<Order, 'id' | 'created_at' | 'updat
         paymentStatus: data.payment_status,
         amount: data.amount.toString(),
         status: data.status || 'Pending',
-        courier: data.courier || null,
-        awbNo: data.awb_no || null,
+        courier: data.courier || (data.awb_no ? 'Professional' : null),
+        awbNo: data.awb_no ? data.awb_no.trim().toUpperCase() : null,
         weightKg: data.weight_kg ? data.weight_kg.toString() : null,
         boxes: data.boxes || 1,
         courierCharge: data.courier_charge ? data.courier_charge.toString() : null,
@@ -636,7 +675,14 @@ export async function updateOrder(id: string, updates: Partial<Order>): Promise<
     if (updates.status !== undefined) val.status = updates.status;
     if (updates.product !== undefined) val.product = updates.product;
     if (updates.courier !== undefined) val.courier = updates.courier;
-    if (updates.awb_no !== undefined) val.awbNo = updates.awb_no;
+    if (updates.awb_no !== undefined) {
+      const cleanedAwb = updates.awb_no ? updates.awb_no.trim().toUpperCase() : null;
+      val.awbNo = cleanedAwb;
+      if (cleanedAwb) {
+        if (!val.courier) val.courier = 'Professional';
+        if (val.status === 'Pending') val.status = 'Dispatched';
+      }
+    }
     if (updates.weight_kg !== undefined) val.weightKg = updates.weight_kg === null ? null : updates.weight_kg.toString();
     if (updates.boxes !== undefined) val.boxes = updates.boxes;
     if (updates.courier_charge !== undefined) val.courierCharge = updates.courier_charge === null ? null : updates.courier_charge.toString();

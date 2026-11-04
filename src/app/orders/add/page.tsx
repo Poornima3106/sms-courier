@@ -241,12 +241,17 @@ function AddOrEditOrderForm() {
     setLoading(true);
     const finalCity = isTypingNewCity ? customCity.trim() : selectedCity;
     const finalProduct = isTypingNewProduct ? customProduct.trim() : product;
-    const finalCourier = assignCourierNow
-      ? isTypingNewCourier
-        ? customCourier.trim()
-        : courier
-      : null;
     const finalAwb = assignCourierNow && awbNo.trim() ? awbNo.trim().toUpperCase() : null;
+    const finalCourier = assignCourierNow
+      ? (isTypingNewCourier ? customCourier.trim() : courier) || (finalAwb ? 'Professional' : null)
+      : null;
+    const finalStatus: OrderStatus = editId
+      ? finalAwb && status === 'Pending'
+        ? 'Dispatched'
+        : status
+      : finalAwb
+      ? 'Dispatched'
+      : 'Pending';
     const combinedPhone = combinePhoneInput(countryCode, phone);
 
     try {
@@ -264,11 +269,11 @@ function AddOrEditOrderForm() {
           order_date: orderDate,
           payment_status: paymentStatus,
           amount: Number(amount),
-          status: editId ? status : finalAwb ? 'Dispatched' : 'Pending',
+          status: finalStatus,
           courier: finalCourier,
           awb_no: finalAwb,
           dispatch_date: assignCourierNow && (editId || finalAwb)
-            ? dispatchDate || (editId ? null : orderDate)
+            ? dispatchDate || orderDate
             : null,
           boxes: Math.max(1, Number(boxes) || 1),
           weight_kg: assignCourierNow && weightKg ? Number(weightKg) : null,

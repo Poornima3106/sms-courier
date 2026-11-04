@@ -13,6 +13,8 @@ import {
   formatPhoneDisplay,
   getWhatsAppUrl,
   getTrackingUrl,
+  getCleanCarrierAwb,
+  isProfessionalCourier,
 } from '@/lib/utils/format';
 import { exportOrdersToExcel, exportOrdersToPdf } from '@/lib/utils/export';
 import {
@@ -159,6 +161,19 @@ export default function OrdersPage() {
   const [modalCharge, setModalCharge] = useState('');
   const [isSavingCourier, setIsSavingCourier] = useState(false);
   const [courierSaveError, setCourierSaveError] = useState<string | null>(null);
+  const [copiedAwbId, setCopiedAwbId] = useState<string | null>(null);
+
+  const handleCopyAwb = (id: string, courierName?: string | null, awbNo?: string | null) => {
+    if (!awbNo) return;
+    const clean = getCleanCarrierAwb(courierName, awbNo);
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(clean).catch(() => {});
+      setCopiedAwbId(id);
+      setTimeout(() => {
+        setCopiedAwbId((prev) => (prev === id ? null : prev));
+      }, 3000);
+    }
+  };
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -274,7 +289,9 @@ export default function OrdersPage() {
 
   // Detect if the active phone filter / search resolves to a single customer phone number
   const activeCustomerSummary = React.useMemo(() => {
-    const hasPhoneQuery = Boolean(phoneFilter.trim()) || Boolean(search.trim().replace(/\D/g, '').length >= 6);
+    const trimmedSearch = search.trim();
+    const isPhoneSearch = !/[a-zA-Z]/.test(trimmedSearch) && trimmedSearch.replace(/\D/g, '').length >= 6;
+    const hasPhoneQuery = Boolean(phoneFilter.trim()) || isPhoneSearch;
     if (!hasPhoneQuery || sortedOrders.length === 0) return null;
 
     const uniquePhoneKeys = new Set(sortedOrders.map((o) => getCleanPhoneKey(o.phone)));
@@ -420,9 +437,15 @@ export default function OrdersPage() {
       return;
     }
 
-    const finalCourier = editIsCustomCourier
+    const cleanEditAwb = editAwb.trim() ? editAwb.trim().toUpperCase() : null;
+    const rawCourier = editIsCustomCourier
       ? editCustomCourier.trim() || null
       : editCourier.trim() || null;
+    const finalCourier = rawCourier || (cleanEditAwb ? 'Professional' : null);
+    const finalStatus: OrderStatus =
+      cleanEditAwb && editStatus === 'Pending' ? 'Dispatched' : editStatus;
+    const finalDispatchDate =
+      editDispatchDate || (cleanEditAwb ? new Date().toISOString().slice(0, 10) : null);
 
     setIsSavingEdit(true);
 
@@ -442,10 +465,10 @@ export default function OrdersPage() {
           boxes: Math.max(1, Number(editBoxes) || 1),
           payment_status: editPaymentStatus,
           amount: Math.max(0, Number(editAmount) || 0),
-          status: editStatus,
+          status: finalStatus,
           courier: finalCourier,
-          awb_no: editAwb.trim() ? editAwb.trim().toUpperCase() : null,
-          dispatch_date: editDispatchDate || null,
+          awb_no: cleanEditAwb,
+          dispatch_date: finalDispatchDate,
           weight_kg: editWeight ? Number(editWeight) : null,
           courier_charge: editCharge ? Number(editCharge) : null,
         }),
@@ -1067,11 +1090,11 @@ export default function OrdersPage() {
 
                       {/* Courier & AWB */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        {o.courier ? (
+                        {o.courier || o.awb_no ? (
                           <div>
                             <div className="flex items-center gap-1.5">
                               <span className="font-semibold text-gray-800 dark:text-gray-200">
-                                {o.courier}
+                                {o.courier || 'Professional'}
                               </span>
                               <button
                                 type="button"
@@ -1083,16 +1106,29 @@ export default function OrdersPage() {
                               </button>
                             </div>
                             {o.awb_no ? (
-                              <a
-                                href={getTrackingUrl(o.courier, o.awb_no)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 font-mono font-semibold hover:underline"
-                                title={`Track on official ${o.courier} portal`}
-                              >
-                                <span>{o.awb_no}</span>
-                                <ExternalLink className="w-2.5 h-2.5" />
-                              </a>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <a
+                                  href={getTrackingUrl(o.courier || 'Professional', o.awb_no)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={() => handleCopyAwb(o.id, o.courier || 'Professional', o.awb_no)}
+                                  className="inline-flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 font-mono font-semibold hover:underline"
+                                  title={`Copies Track ID ${o.awb_no} & opens ${
+                                    isProfessionalCourier(o.courier || 'Professional', o.awb_no)
+                                      ? 'tpcindia.com/Default.aspx'
+                                      : `${o.courier} portal`
+                                  }`}
+                                >
+                                  <span>{o.awb_no}</span>
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                                {copiedAwbId === o.id && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                    <Check className="w-2.5 h-2.5" />
+                                    Copied!
+                                  </span>
+                                )}
+                              </div>
                             ) : (
                               <button
                                 type="button"
@@ -1160,9 +1196,18 @@ export default function OrdersPage() {
 
                           {/* Track Button */}
                           <Link
-                            href={`/track?orderNo=${o.order_no}`}
+                            href={`/track?orderNo=${encodeURIComponent(o.awb_no || o.order_no)}`}
+                            onClick={() => {
+                              if (o.awb_no) {
+                                handleCopyAwb(o.id, o.courier || 'Professional', o.awb_no);
+                              }
+                            }}
                             className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-100 transition-colors"
-                            title="View tracking timeline"
+                            title={
+                              o.awb_no
+                                ? `Track AWB ${o.awb_no} (${o.courier || 'Professional'})`
+                                : `Track Order ${o.order_no}`
+                            }
                           >
                             <ExternalLink className="w-4 h-4" />
                           </Link>
@@ -1550,14 +1595,49 @@ export default function OrdersPage() {
                 </div>
 
                 <div>
-                  <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1">
-                    AWB / Tracking No
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                      AWB / Tracking No
+                    </label>
+                    {editAwb.trim() && (
+                      <a
+                        href={getTrackingUrl(editIsCustomCourier ? editCustomCourier : editCourier || 'Professional', editAwb)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() =>
+                          handleCopyAwb(
+                            'edit-modal',
+                            editIsCustomCourier ? editCustomCourier : editCourier || 'Professional',
+                            editAwb
+                          )
+                        }
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                        title="Copies Track ID & opens carrier portal"
+                      >
+                        <span>Track AWB</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    )}
+                  </div>
                   <input
                     type="text"
                     value={editAwb}
-                    onChange={(e) => setEditAwb(e.target.value.toUpperCase())}
-                    placeholder="Optional AWB"
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase();
+                      setEditAwb(val);
+                      if (val.trim()) {
+                        if (!editIsCustomCourier && !editCourier) {
+                          setEditCourier(couriers[0] || 'Professional');
+                        }
+                        if (editStatus === 'Pending') {
+                          setEditStatus('Dispatched');
+                        }
+                        if (!editDispatchDate) {
+                          setEditDispatchDate(new Date().toISOString().slice(0, 10));
+                        }
+                      }
+                    }}
+                    placeholder="e.g. CJB1234567 or PRO672314"
                     className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] font-mono uppercase focus:ring-2 focus:ring-[#7A1626] outline-none"
                   />
                 </div>
@@ -1787,19 +1867,44 @@ export default function OrdersPage() {
 
               {/* AWB Tracking Number */}
               <div>
-                <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1.5">
-                  AWB / Tracking Number *
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                    AWB / Tracking Number *
+                  </label>
+                  {modalAwb.trim() && (
+                    <a
+                      href={getTrackingUrl(modalIsCustomCourier ? modalCustomCourier : modalCourier, modalAwb)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() =>
+                        handleCopyAwb(
+                          'courier-modal',
+                          modalIsCustomCourier ? modalCustomCourier : modalCourier,
+                          modalAwb
+                        )
+                      }
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                      title="Copies Track ID & opens carrier portal"
+                    >
+                      <span>
+                        {isProfessionalCourier(modalIsCustomCourier ? modalCustomCourier : modalCourier, modalAwb)
+                          ? 'Track on TPC India'
+                          : 'Track AWB'}
+                      </span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  )}
+                </div>
                 <input
                   type="text"
                   required
                   value={modalAwb}
                   onChange={(e) => setModalAwb(e.target.value.toUpperCase())}
-                  placeholder="e.g. PRO672314 or ST8892110"
+                  placeholder="e.g. CJB1234567, PRO672314 or ST8892110"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-[#140A0D] text-xs font-mono font-bold uppercase tracking-wider focus:ring-2 focus:ring-[#7A1626] outline-none"
                 />
                 <p className="text-[10px] text-gray-400 mt-1">
-                  Once assigned, customers can track their parcel live and receive direct tracking links
+                  Once assigned, clicking Track copies the AWB and opens the official carrier tracking page (tpcindia.com/Default.aspx for Professional Courier)
                 </p>
               </div>
 
